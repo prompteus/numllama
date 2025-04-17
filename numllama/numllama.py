@@ -1,5 +1,6 @@
+import contextlib
 import warnings
-from typing import Any
+from typing import Any, List, Optional, Tuple, Union
 
 import hydra
 import tokenizers
@@ -7,6 +8,7 @@ import tokenizers.pre_tokenizers
 import torch
 import transformers
 import transformers.modeling_outputs
+import transformers.models
 from torch import Tensor
 
 import numllama.addition
@@ -89,6 +91,7 @@ class NumLlamaForCausalLM(transformers.LlamaForCausalLM):
         self.embedding = numllama.nn.MultiEmbedding({"str": string_emb, "num": numeric_emb})
         self.model.embed_tokens = numllama.nn.Lambda(self.embedding.encode)
         self.lm_head = numllama.nn.Lambda(self.embedding.decode)
+        self.config.vocab_size = self.embedding.num_embeddings
 
     def get_numeric_emb(self) -> numllama.nn.LatentEmbedding:
         emb = self.embedding.embeddings["num"]
@@ -97,12 +100,43 @@ class NumLlamaForCausalLM(transformers.LlamaForCausalLM):
         assert isinstance(emb, numllama.nn.LatentEmbedding)
         return emb
 
-    def forward(self, *args, **kwargs) -> transformers.modeling_outputs.CausalLMOutputWithPast:
+    def forward(
+        self,
+        input_ids: torch.LongTensor = None,
+        attention_mask: Optional[torch.Tensor] = None,
+        position_ids: Optional[torch.LongTensor] = None,
+        past_key_values: Optional[Union[transformers.cache_utils.Cache, List[torch.FloatTensor]]] = None,
+        inputs_embeds: Optional[torch.FloatTensor] = None,
+        labels: Optional[torch.LongTensor] = None,
+        use_cache: Optional[bool] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+        cache_position: Optional[torch.LongTensor] = None,
+        logits_to_keep: Union[int, torch.Tensor] = 0,
+        **kwargs: transformers.processing_utils.Unpack[transformers.models.llama.modeling_llama.KwargsForCausalLM],
+    ) -> Union[Tuple, transformers.modeling_outputs.CausalLMOutputWithPast]:
         if self.training:
-            with self.get_numeric_emb().use_latents():
-                return super().forward(*args, **kwargs)
-        # in eval mode, latents are already cached
-        return super().forward(*args, **kwargs)
+            ctx = self.get_numeric_emb().use_latents
+        else:
+            # in eval mode, latents are already computed and cached
+            ctx = contextlib.nullcontext
+        with ctx():
+            return super().forward(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                position_ids=position_ids,
+                past_key_values=past_key_values,
+                inputs_embeds=inputs_embeds,
+                labels=labels,
+                use_cache=use_cache,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                return_dict=return_dict,
+                cache_position=cache_position,
+                logits_to_keep=logits_to_keep,
+                **kwargs,
+            )
 
 
 def patch_llama_digit_splitting(tokenizer: transformers.PreTrainedTokenizerFast):

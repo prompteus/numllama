@@ -1,6 +1,7 @@
 import abc
 import contextlib
 import copy
+import functools
 from typing import Iterator, Literal, Protocol, Self, cast
 
 import torch
@@ -368,11 +369,18 @@ class MultiEmbedding(DualEmbedding):
         return [(start, end) for start, end in ranges.tolist()]
 
     def _encode(self, x: torch.Tensor) -> torch.Tensor:
-        out = torch.zeros(x.shape + (self.embedding_dim,), device=x.device)
+        masks: list[Tensor] = []
+        outs: list[Tensor] = []
         for (start_idx, end_idx), emb in zip(self.ranges, self.embeddings.values()):
             mask = (x >= start_idx) & (x < end_idx)
             inputs = x[mask] - start_idx
-            out[mask] = emb.encode(inputs)
+            enc = emb.encode(inputs)
+            masks.append(mask)
+            outs.append(enc)
+        out_dtype = functools.reduce(torch.promote_types, (o.dtype for o in outs))
+        out = torch.zeros(x.shape + (self.embedding_dim,), device=x.device, dtype=out_dtype)
+        for mask, enc in zip(masks, outs):
+            out[mask] = enc.to(out.dtype)
         return out
 
     def _decode(self, x: torch.Tensor) -> torch.Tensor:
