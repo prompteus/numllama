@@ -1,3 +1,5 @@
+import logging
+import sys
 import traceback
 from typing import Optional
 
@@ -14,12 +16,17 @@ app = typer.Typer(
     rich_markup_mode="rich",
 )
 
+logger = logging.getLogger()
+
+sys.modules["svgai"] = numllama
+sys.modules["svgai.train"] = numllama.addition
 
 @app.command()
 def main(
     use_instructions_train: bool = True,
     use_instructions_val: bool = False,
-    model_name: str = "google/t5-v1_1-large",
+    model_name: str = "meta-llama/Llama-3.2-1B",
+    num_embeddings_model: Optional[str] = "/var/tmp/xstefan3/svgai/checkpoints/vocal-frost-603__c5a8xfde/global-step=235000__valid-acc=1.000.ckpt",
     limit_train_set_per_ds: int = -1,
     limit_val_set_per_ds: int = 200,
     wandb_entity: str = "transformersclub",
@@ -57,9 +64,39 @@ def main(
     # model = model_class.from_pretrained(model_name, torch_dtype=torch.bfloat16)
     # assert isinstance(model, gadgets.model.GadgetAssist)
     # tokenizer = transformers.AutoTokenizer.from_pretrained(model_name, use_fast=False)
+    if num_embeddings_model is not None:
+        addition_model = numllama.addition.AdditionLightning.load_from_checkpoint(num_embeddings_model)
+        numeric_input_emb_config = addition_model.model.embedding_config.model_dump()
+        numeric_encoder_config = addition_model.model.num_encoder_config
 
-    model = transformers.AutoModelForSeq2SeqLM.from_pretrained(model_name)
-    tokenizer = transformers.AutoTokenizer.from_pretrained(model_name, use_fast=False)
+        original_config = transformers.LlamaConfig.from_pretrained(model_name)
+        config = numllama.numllama.NumLlamaConfig(
+                numeric_input_emb_config=numeric_input_emb_config,
+                numeric_encoder_config=numeric_encoder_config,
+                **original_config.to_dict(),
+        )
+        model = numllama.numllama.NumLlamaForCausalLM.from_pretrained(model_name, config=config)
+
+        # create the new numeric embedding layer inside llama
+        model.apply_numeric_patch()
+
+        tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
+        # change how llama tokenizes numbers
+        numllama.numllama.patch_llama_digit_splitting(tokenizer)
+
+        numllama.numllama.add_num_tokens_to_tokenizer(
+                numeric_input_emb_config["min_value"],
+                numeric_input_emb_config["max_value"],
+                tokenizer,
+                model
+        )
+
+        num_state_dict = addition_model.model.embedding.state_dict()
+        model.get_numeric_emb().load_state_dict(num_state_dict)
+
+    else:
+        model = transformers.AutoModelForCausalLM.from_pretrained(model_name)
+        tokenizer = transformers.AutoTokenizer.from_pretrained(model_name, use_fast=False)
 
     wandb.init(
         entity=wandb_entity,
@@ -90,7 +127,7 @@ def main(
     data_collator = transformers.DataCollatorForSeq2Seq(tokenizer, model)
     ds_train = datasets.load_dataset(train_ds, split=train_ds_split_name)
     ds_valid = datasets.load_dataset(valid_ds, split="validation")
-    instructions_ds = datasets.load_dataset("MU-NLPC/Calc-X_instructions")
+    instructions_ds = datasets.load_dataset("MU-NLPC/Calc-X_style-instructions")
 
     random_generator = np.random.default_rng(0)
 
