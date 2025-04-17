@@ -6,10 +6,11 @@ import tokenizers
 import tokenizers.pre_tokenizers
 import torch
 import transformers
+import transformers.modeling_outputs
 from torch import Tensor
 
-import numllama.nn
 import numllama.addition
+import numllama.nn
 
 
 class NumLlamaConfig(transformers.LlamaConfig):
@@ -55,9 +56,7 @@ class NumLlamaForCausalLM(transformers.LlamaForCausalLM):
 
     def apply_numeric_patch(self):
         if not isinstance(self.config, NumLlamaConfig):
-            raise ValueError(
-                f"Expected self.config to be {NumLlamaConfig.__name__}, got {type(self.config).__name__}"
-            )
+            raise ValueError(f"Expected self.config to be {NumLlamaConfig.__name__}, got {type(self.config).__name__}")
         if self.config.numeric_input_emb is None:
             raise ValueError("Numeric input embedding config is required.")
         num_emb_config = numllama.addition.NumEmbeddingConfig(**self.config.numeric_input_emb)
@@ -97,6 +96,13 @@ class NumLlamaForCausalLM(transformers.LlamaForCausalLM):
             emb = emb.embedding
         assert isinstance(emb, numllama.nn.LatentEmbedding)
         return emb
+
+    def forward(self, *args, **kwargs) -> transformers.modeling_outputs.CausalLMOutputWithPast:
+        if self.training:
+            with self.get_numeric_emb().use_latents():
+                return super().forward(*args, **kwargs)
+        # in eval mode, latents are already cached
+        return super().forward(*args, **kwargs)
 
 
 def patch_llama_digit_splitting(tokenizer: transformers.PreTrainedTokenizerFast):

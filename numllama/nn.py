@@ -1,7 +1,7 @@
 import abc
 import contextlib
 import copy
-from typing import Literal, Protocol, cast
+from typing import Iterator, Literal, Protocol, Self, cast
 
 import torch
 from torch import Tensor
@@ -275,6 +275,9 @@ def feedforward_backbone(
     return torch.nn.Sequential(*backbone)
 
 
+class LatentEmbeddingNotBuiltError(ValueError): ...
+
+
 class LatentEmbedding(DualEmbedding):
     """
     Layer that maps a (pre-computed) embedding into a latent space using a given encoder.
@@ -299,25 +302,52 @@ class LatentEmbedding(DualEmbedding):
         self.num_embeddings = input_embedding.num_embeddings
         self.cache: Tensor | None = None
 
-    @contextlib.contextmanager
-    def build_latents(self):
-        try:
-            if self.input_embedding.max_norm is not None:
-                raise NotImplementedError("max_norm not implemented.")
-            self.cache = self.encoder(self.input_embedding.weight)
-            yield
-        finally:
+    def build_latents(self) -> None:
+        """
+        Build the latents by passing the input embedding through the encoder.
+        """
+        if self.input_embedding.max_norm is not None:
+            raise NotImplementedError("max_norm not implemented.")
+        self.cache = self.encoder(self.input_embedding.weight)
+
+    def clear_latents(self) -> None:
+        """
+        Clear the latents to free up memory.
+        """
+        if self.cache is not None:
             del self.cache
             self.cache = None
 
+    def train(self, mode: bool = True) -> Self:
+        out = super().train(mode)
+        if mode:
+            self.clear_latents()
+        else:
+            # cache the latents for inference
+            with torch.no_grad():
+                self.build_latents()
+        return out
+
+    @contextlib.contextmanager
+    def use_latents(self) -> Iterator[None]:
+        try:
+            self.build_latents()
+            yield
+        finally:
+            self.clear_latents()
+
     def _encode(self, x: Tensor) -> Tensor:
         if self.cache is None:
-            raise ValueError("Latent weights are not available. Use `with build_latents()`.")
+            raise LatentEmbeddingNotBuiltError(
+                "Latent weights are not available. Use `with use_latents()` or put model into eval mode."
+            )
         return torch.nn.functional.embedding(x, self.cache)
 
     def _decode(self, x: Tensor) -> Tensor:
         if self.cache is None:
-            raise ValueError("Latent weights are not available. Use `with build_latents()`.")
+            raise LatentEmbeddingNotBuiltError(
+                "Latent weights are not available. Use `with use_latents()` or put model into eval mode."
+            )
         return torch.nn.functional.linear(x, self.cache, None)
 
 
