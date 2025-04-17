@@ -7,8 +7,9 @@ Project for exploring numerical embeddings for language models.
 
 ```shell
 git clone ...
+cd ...
 conda create -n numllama python=3.12
-conda activate numllamma
+conda activate numllama
 pip install poetry
 poetry install
 ```
