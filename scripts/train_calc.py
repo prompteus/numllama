@@ -98,6 +98,8 @@ def main(
         model = transformers.AutoModelForCausalLM.from_pretrained(model_name)
         tokenizer = transformers.AutoTokenizer.from_pretrained(model_name, use_fast=False)
 
+    tokenizer.pad_token = tokenizer.eos_token
+
     wandb.init(
         entity=wandb_entity,
         project=wandb_project,
