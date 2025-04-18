@@ -7,7 +7,7 @@ import datasets
 import numpy as np
 import transformers
 import typer
-import wandb
+# import wandb
 
 import numllama.metrics
 
@@ -26,9 +26,10 @@ def main(
     use_instructions_train: bool = True,
     use_instructions_val: bool = False,
     model_name: str = "meta-llama/Llama-3.2-1B",
-    num_embeddings_model: Optional[str] = "/var/tmp/xstefan3/svgai/checkpoints/vocal-frost-603__c5a8xfde/global-step=235000__valid-acc=1.000.ckpt",
+    # num_embeddings_model: Optional[str] = "/var/tmp/xstefan3/svgai/checkpoints/warm-sunset-628__u99wrvem-global-step=145000__valid-acc=0.999.ckpt",
+    num_embeddings_model: Optional[str] = None,
     limit_train_set_per_ds: int = -1,
-    limit_val_set_per_ds: int = 200,
+    limit_val_set_per_ds: int = 10,
     wandb_entity: str = "transformersclub",
     wandb_project: str = "numllama",
     wandb_group: Optional[str] = "",
@@ -41,10 +42,10 @@ def main(
     valid_label_col: str = "chain",
     valid_ds: str = "MU-NLPC/Calc-X",
     valid_ds_subset: Optional[str] = None,
-    max_output_length: int = 756,
-    batch_size: int = 4,
+    max_output_length: int = 128,
+    batch_size: int = 1,
     grad_accum: int = 8,
-    eval_batch_size: int = 8,
+    eval_batch_size: int = 1,
     optim="adamw_torch",
     save_total_limit: int = 5,
     eval_steps: int = 100,  # = 16000, TODO
@@ -100,15 +101,15 @@ def main(
 
     tokenizer.pad_token = tokenizer.eos_token
 
-    wandb.init(
-        entity=wandb_entity,
-        project=wandb_project,
-        tags=[model_name, "supervised"],
-        group=wandb_group,
-        dir=wandb_dir,
-    )
-
-    wandb.config.update({"cli_params": cli_params})
+    # wandb.init(
+    #     entity=wandb_entity,
+    #     project=wandb_project,
+    #     tags=[model_name, "supervised"],
+    #     group=wandb_group,
+    #     dir=wandb_dir,
+    # )
+    #
+    # wandb.config.update({"cli_params": cli_params})
 
     # # ORIGINAL CALC-X code
     #
@@ -159,12 +160,16 @@ def main(
         ds_valid = ds_valid.map(add_instruction)
 
     def preprocess(example, label_col):
-        inputs = tokenizer(example[input_col], truncation=True)
+        inputs = tokenizer(example[input_col], truncation=True, max_length=max_output_length)
         labels = tokenizer(text_target=example[label_col], truncation=True, max_length=max_output_length)
+
+        inputs_labels = [i + l for i, l in zip(inputs.input_ids, labels.input_ids)]
+        labels_ignored = [[-100]*len(i) + l for i, l in zip(inputs.input_ids, labels.input_ids)]
+
         return {
-            "input_ids": inputs.input_ids,
-            "attention_mask": inputs.attention_mask,
-            "labels": labels.input_ids,
+            "input_ids": inputs_labels,
+            # "attention_mask": [[1]*len(il) for il in inputs_labels],
+            "labels": labels_ignored,
         }
 
     ds_train = ds_train.map(preprocess, batched=True, fn_kwargs={"label_col": train_label_col})
@@ -180,7 +185,8 @@ def main(
         callbacks.append(early_stopping)
 
     training_args = transformers.Seq2SeqTrainingArguments(
-        output_dir=f"{checkpoint_dir}/{wandb.run.name}",
+        # output_dir=f"{checkpoint_dir}/{wandb.run.name}",
+        output_dir=f"{checkpoint_dir}",
         learning_rate=learning_rate,
         do_train=True,
         do_eval=True,
@@ -198,9 +204,10 @@ def main(
         bf16=True,
         bf16_full_eval=True,
         predict_with_generate=True,
+        gradient_checkpointing=True,
         generation_max_length=max_output_length,
         include_inputs_for_metrics=True,
-        report_to="wandb",
+        # report_to="wandb",
         metric_for_best_model="avg_correct_results",
         greater_is_better=True,
         load_best_model_at_end=True,
@@ -224,7 +231,8 @@ def main(
         compute_metrics=metrics,
         callbacks=callbacks,
     )
-
+    # model.build_num_latents()
+    # model.embedding.embs["num"].requires_grad = False
     trainer.train()
 
 
