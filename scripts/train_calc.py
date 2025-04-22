@@ -100,6 +100,7 @@ def main(
         tokenizer = transformers.AutoTokenizer.from_pretrained(model_name, use_fast=False)
 
     tokenizer.pad_token = tokenizer.eos_token
+    model.tokenizer = tokenizer
 
     wandb.init(
         entity=wandb_entity,
@@ -163,8 +164,10 @@ def main(
         inputs = tokenizer(example[input_col], truncation=True, max_length=max_output_length)
         labels = tokenizer(text_target=example[label_col], truncation=True, max_length=max_output_length)
 
-        inputs_labels = [i + [tokenizer.eos_token_id] + l for i, l in zip(inputs.input_ids, labels.input_ids)]
-        labels_ignored = [[-100]*(len(i)+1) + l for i, l in zip(inputs.input_ids, labels.input_ids)]
+        inputs_labels = [i + [tokenizer.eos_token_id] + l + [tokenizer.eos_token_id]
+                         for i, l in zip(inputs.input_ids, labels.input_ids)]
+        labels_ignored = [[-100]*(len(i)+1) + l + [tokenizer.eos_token_id]
+                          for i, l in zip(inputs.input_ids, labels.input_ids)]
 
         return {"input_ids": inputs_labels, "labels": labels_ignored}
 
