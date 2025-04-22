@@ -7,7 +7,7 @@ import datasets
 import numpy as np
 import transformers
 import typer
-# import wandb
+import wandb
 
 import numllama.metrics
 
@@ -101,15 +101,15 @@ def main(
 
     tokenizer.pad_token = tokenizer.eos_token
 
-    # wandb.init(
-    #     entity=wandb_entity,
-    #     project=wandb_project,
-    #     tags=[model_name, "supervised"],
-    #     group=wandb_group,
-    #     dir=wandb_dir,
-    # )
-    #
-    # wandb.config.update({"cli_params": cli_params})
+    wandb.init(
+        entity=wandb_entity,
+        project=wandb_project,
+        tags=[model_name, "supervised"],
+        group=wandb_group,
+        dir=wandb_dir,
+    )
+
+    wandb.config.update({"cli_params": cli_params})
 
     # # ORIGINAL CALC-X code
     #
@@ -181,8 +181,8 @@ def main(
         callbacks.append(early_stopping)
 
     training_args = transformers.Seq2SeqTrainingArguments(
-        # output_dir=f"{checkpoint_dir}/{wandb.run.name}",
-        output_dir=f"{checkpoint_dir}",
+        output_dir=f"{checkpoint_dir}/{wandb.run.name}",
+        # output_dir=f"{checkpoint_dir}",
         learning_rate=learning_rate,
         do_train=True,
         do_eval=True,
@@ -203,7 +203,7 @@ def main(
         gradient_checkpointing=True,
         generation_max_length=max_output_length*3,
         include_inputs_for_metrics=True,
-        # report_to="wandb",
+        report_to="wandb",
         metric_for_best_model="avg_correct_results",
         greater_is_better=True,
         load_best_model_at_end=True,
