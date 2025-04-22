@@ -138,6 +138,19 @@ class NumLlamaForCausalLM(transformers.LlamaForCausalLM):
                 **kwargs,
             )
 
+    def prepare_inputs_for_generation(self, *args, **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
+        if "labels" in kwargs:
+            # shorten the generation inputs for the ids of labels
+            input_ids = args[0] if args else kwargs["input_ids"]  # must be filled
+            attention_mask = args[2] if len(args) > 2 else kwargs["attention_mask"]
+            for i, _ in enumerate(input_ids):
+                labels_length = len(kwargs["labels"][i])
+                input_ids_eos_pos = torch.argmax((input_ids[i] == self.config.eos_token_id).int())
+                # zero out the input_ids on the position of labels
+                input_ids[i, input_ids_eos_pos+1:] = self.config.eos_token_id
+                attention_mask[i, input_ids_eos_pos+1:] = 0
+
+        return super().prepare_inputs_for_generation(*args, **kwargs)
 
 def patch_llama_digit_splitting(tokenizer: transformers.PreTrainedTokenizerFast):
     warnings.warn(

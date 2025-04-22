@@ -29,7 +29,7 @@ def main(
     num_embeddings_model: Optional[str] = "/var/tmp/xstefan3/svgai/checkpoints/warm-sunset-628__u99wrvem-global-step=145000__valid-acc=0.999.ckpt",
     # num_embeddings_model: Optional[str] = None,
     limit_train_set_per_ds: int = -1,
-    limit_val_set_per_ds: int = 10,
+    limit_val_set_per_ds: int = 40,  # TODO
     wandb_entity: str = "transformersclub",
     wandb_project: str = "numllama",
     wandb_group: Optional[str] = "",
@@ -43,15 +43,15 @@ def main(
     valid_ds: str = "MU-NLPC/Calc-X",
     valid_ds_subset: Optional[str] = None,
     max_output_length: int = 512,
-    batch_size: int = 4,
-    grad_accum: int = 8,
+    batch_size: int = 8,
+    grad_accum: int = 4,
     eval_batch_size: int = 1,
     optim="adamw_torch",
     save_total_limit: int = 5,
-    eval_steps: int = 10,  # = 16000, TODO
-    save_steps: int = 100,  # = 16000,
+    eval_steps: int = 2000,  # = 16000, TODO
+    save_steps: int = 2000,  # = 16000, TODO
     learning_rate: float = 2e-5,
-    early_stopping_patience: Optional[int] = None,
+    early_stopping_patience: Optional[int] = 20,
     early_stopping_threshold: float = 0.03,
 ) -> None:
     cli_params = locals()
@@ -163,14 +163,10 @@ def main(
         inputs = tokenizer(example[input_col], truncation=True, max_length=max_output_length)
         labels = tokenizer(text_target=example[label_col], truncation=True, max_length=max_output_length)
 
-        inputs_labels = [i + l for i, l in zip(inputs.input_ids, labels.input_ids)]
-        labels_ignored = [[-100]*len(i) + l for i, l in zip(inputs.input_ids, labels.input_ids)]
+        inputs_labels = [i + [tokenizer.eos_token_id] + l for i, l in zip(inputs.input_ids, labels.input_ids)]
+        labels_ignored = [[-100]*(len(i)+1) + l for i, l in zip(inputs.input_ids, labels.input_ids)]
 
-        return {
-            "input_ids": inputs_labels,
-            # "attention_mask": [[1]*len(il) for il in inputs_labels],
-            "labels": labels_ignored,
-        }
+        return {"input_ids": inputs_labels, "labels": labels_ignored}
 
     ds_train = ds_train.map(preprocess, batched=True, fn_kwargs={"label_col": train_label_col})
     ds_valid = ds_valid.map(preprocess, batched=True, fn_kwargs={"label_col": valid_label_col})
@@ -205,7 +201,7 @@ def main(
         bf16_full_eval=True,
         predict_with_generate=True,
         gradient_checkpointing=True,
-        generation_max_length=max_output_length*2,
+        generation_max_length=max_output_length*3,
         include_inputs_for_metrics=True,
         # report_to="wandb",
         metric_for_best_model="avg_correct_results",
