@@ -44,14 +44,14 @@ def main(
     valid_ds: str = "MU-NLPC/Calc-X",
     valid_ds_subset: Optional[str] = None,
     max_output_length: int = 512,
-    batch_size: int = 8,
-    grad_accum: int = 4,
+    batch_size: int = 4,
+    grad_accum: int = 8,
     eval_batch_size: int = 1,
     optim="adamw_torch",
     save_total_limit: int = 5,
-    eval_steps: int = 2000,  # = 16000, TODO
+    eval_steps: int = 1000,  # = 16000, TODO
     save_steps: int = 2000,  # = 16000, TODO
-    learning_rate: float = 2e-5,
+    learning_rate: float = 5e-5,
     early_stopping_patience: Optional[int] = 20,
     early_stopping_threshold: float = 0.03,
 ) -> None:
@@ -162,8 +162,8 @@ def main(
         ds_valid = ds_valid.map(add_instruction)
 
     def preprocess(example, label_col):
-        input_text = example[input_col].replace(">", "> ").replace("<", " <")
-        input_label = example[label_col].replace(">", "> ").replace("<", " <")
+        input_text = [text.replace(">", "> ").replace("<", " <") for text in example[input_col]]
+        input_label = [text.replace(">", "> ").replace("<", " <") for text in example[label_col]]
         inputs = tokenizer(input_text, truncation=True, max_length=max_output_length)
         labels = tokenizer(text_target=input_label, truncation=True, max_length=max_output_length)
 
