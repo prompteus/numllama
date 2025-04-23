@@ -26,10 +26,11 @@ def main(
     use_instructions_train: bool = True,
     use_instructions_val: bool = False,
     model_name: str = "meta-llama/Llama-3.2-1B",
-    num_embeddings_model: Optional[str] = "/var/tmp/xstefan3/svgai/checkpoints/warm-sunset-628__u99wrvem-global-step=145000__valid-acc=0.999.ckpt",
+    # num_embeddings_model: Optional[str] = "/var/tmp/xstefan3/svgai/checkpoints/warm-sunset-628__u99wrvem-global-step=145000__valid-acc=0.999.ckpt",
+    num_embeddings_model: Optional[str] = "/var/tmp/xstefan3/svgai/checkpoints/eternal-monkey-624__vtqqjo78/global-step=25000__valid-acc=0.003.ckpt",
     # num_embeddings_model: Optional[str] = None,
     limit_train_set_per_ds: int = -1,
-    limit_val_set_per_ds: int = 40,  # TODO
+    limit_val_set_per_ds: int = 4,  # TODO
     wandb_entity: str = "transformersclub",
     wandb_project: str = "numllama",
     wandb_group: Optional[str] = "",
@@ -161,8 +162,10 @@ def main(
         ds_valid = ds_valid.map(add_instruction)
 
     def preprocess(example, label_col):
-        inputs = tokenizer(example[input_col], truncation=True, max_length=max_output_length)
-        labels = tokenizer(text_target=example[label_col], truncation=True, max_length=max_output_length)
+        input_text = example[input_col].replace(">", "> ").replace("<", " <")
+        input_label = example[label_col].replace(">", "> ").replace("<", " <")
+        inputs = tokenizer(input_text, truncation=True, max_length=max_output_length)
+        labels = tokenizer(text_target=input_label, truncation=True, max_length=max_output_length)
 
         inputs_labels = [i + [tokenizer.eos_token_id] + l + [tokenizer.eos_token_id]
                          for i, l in zip(inputs.input_ids, labels.input_ids)]
@@ -230,8 +233,8 @@ def main(
         compute_metrics=metrics,
         callbacks=callbacks,
     )
-    # model.build_num_latents()
-    # model.embedding.embs["num"].requires_grad = False
+    model.build_num_latents()
+    model.embedding.embs["num"].requires_grad = False
     trainer.train()
 
 
