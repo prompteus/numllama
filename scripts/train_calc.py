@@ -50,7 +50,7 @@ def main(
     eval_batch_size: int = 1,
     optim="adamw_torch",
     save_total_limit: int = 5,
-    eval_steps: int = 1000,  # = 16000, TODO
+    eval_steps: int = 200,  # = 16000, TODO
     save_steps: int = 2000,  # = 16000, TODO
     learning_rate: float = 5e-5,
     early_stopping_patience: Optional[int] = 20,
