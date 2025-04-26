@@ -53,7 +53,27 @@ class EmbeddingGlue(numllama.nn.DualEmbedding):
         return self.embedding._decode(self.to_embed_dim(x))
 
 
-class NumLlamaForCausalLM(transformers.LlamaForCausalLM):
+class BaselineLlamaForCausalLM(transformers.LlamaForCausalLM):
+
+    def prepare_inputs_for_generation(self, *args, **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
+        is_first_generation_call = "past_key_values" in kwargs and not kwargs["past_key_values"]
+        if is_first_generation_call and "labels" in kwargs:
+            # this needs to modify input_ids in-place, otherwise the further calls will aggregate
+            # the generated outputs behind the labels
+            input_ids = args[0] if args else kwargs["input_ids"]  # must be filled
+            attention_mask = args[2] if len(args) > 2 else kwargs["attention_mask"]
+
+            # shorten the generation inputs for the ids of labels
+            assert len(input_ids) == 1 and len(attention_mask) == 1, "Following code assumes eval batch size of 1."
+            input_ids_eos_pos = torch.argmax((input_ids[0] == self.config.eos_token_id).int())
+            # zero out the input_ids on the position of labels
+            input_ids.resize_(1, input_ids_eos_pos+1)
+            attention_mask.resize_(1, input_ids_eos_pos+1)
+
+        return super().prepare_inputs_for_generation(*args, **kwargs)
+
+
+class NumLlamaForCausalLM(BaselineLlamaForCausalLM):
     config_class = NumLlamaConfig
 
     def apply_numeric_patch(self):
@@ -137,23 +157,6 @@ class NumLlamaForCausalLM(transformers.LlamaForCausalLM):
                 logits_to_keep=logits_to_keep,
                 **kwargs,
             )
-
-    def prepare_inputs_for_generation(self, *args, **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
-        is_first_generation_call = "past_key_values" in kwargs and not kwargs["past_key_values"]
-        if is_first_generation_call and "labels" in kwargs:
-            # this needs to modify input_ids in-place, otherwise the further calls will aggregate
-            # the generated outputs behind the labels
-            input_ids = args[0] if args else kwargs["input_ids"]  # must be filled
-            attention_mask = args[2] if len(args) > 2 else kwargs["attention_mask"]
-
-            # shorten the generation inputs for the ids of labels
-            assert len(input_ids) == 1 and len(attention_mask) == 1, "Following code assumes eval batch size of 1."
-            input_ids_eos_pos = torch.argmax((input_ids[0] == self.config.eos_token_id).int())
-            # zero out the input_ids on the position of labels
-            input_ids.resize_(1, input_ids_eos_pos+1)
-            attention_mask.resize_(1, input_ids_eos_pos+1)
-
-        return super().prepare_inputs_for_generation(*args, **kwargs)
 
 def patch_llama_digit_splitting(tokenizer: transformers.PreTrainedTokenizerFast):
     warnings.warn(

@@ -31,7 +31,7 @@ def main(
     num_embeddings_model: Optional[str] = "/var/tmp/xstefan3/svgai/checkpoints/eternal-monkey-624__vtqqjo78/global-step=25000__valid-acc=0.003.ckpt",
     # num_embeddings_model: Optional[str] = None,
     limit_train_set_per_ds: int = -1,
-    limit_val_set_per_ds: int = 4,  # TODO
+    limit_val_set_per_ds: int = 40,  # TODO
     wandb_entity: str = "transformersclub",
     wandb_project: str = "numllama",
     wandb_group: Optional[str] = "",
@@ -50,7 +50,7 @@ def main(
     eval_batch_size: int = 1,
     optim="adamw_torch",
     save_total_limit: int = 5,
-    eval_steps: int = 200,  # = 16000, TODO
+    eval_steps: int = 2000,  # = 16000, TODO
     save_steps: int = 2000,  # = 16000, TODO
     learning_rate: float = 5e-5,
     early_stopping_patience: Optional[int] = 20,
@@ -98,7 +98,7 @@ def main(
         model.get_numeric_emb().load_state_dict(num_state_dict)
 
     else:
-        model = transformers.AutoModelForCausalLM.from_pretrained(model_name)
+        model = numllama.numllama.BaselineLlamaForCausalLM.from_pretrained(model_name)
         tokenizer = transformers.AutoTokenizer.from_pretrained(model_name, use_fast=False)
 
     tokenizer.pad_token = tokenizer.eos_token
