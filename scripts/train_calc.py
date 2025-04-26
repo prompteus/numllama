@@ -10,6 +10,7 @@ import typer
 import wandb
 
 import numllama.metrics
+from scripts import utils
 
 app = typer.Typer(
     pretty_exceptions_show_locals=False,
@@ -162,8 +163,8 @@ def main(
         ds_valid = ds_valid.map(add_instruction)
 
     def preprocess(example, label_col):
-        input_text = [text.replace(">", "> ").replace("<", " <") for text in example[input_col]]
-        input_label = [text.replace(">", "> ").replace("<", " <") for text in example[label_col]]
+        input_text = [text.replace(">", "> ").replace("<", " <").replace("_", "") for text in example[input_col]]
+        input_label = [text.replace(">", "> ").replace("<", " <").replace("_", "") for text in example[label_col]]
         inputs = tokenizer(input_text, truncation=True, max_length=max_output_length)
         labels = tokenizer(text_target=input_label, truncation=True, max_length=max_output_length)
 
@@ -207,7 +208,7 @@ def main(
         bf16_full_eval=True,
         predict_with_generate=True,
         gradient_checkpointing=True,
-        generation_max_length=max_output_length*3,
+        generation_max_length=max_output_length,
         include_inputs_for_metrics=True,
         report_to="wandb",
         metric_for_best_model="avg_correct_results",
@@ -223,7 +224,7 @@ def main(
         source_ds_col=ds_valid["source_ds"],
     )
 
-    trainer = transformers.Seq2SeqTrainer(
+    trainer = utils.CustomSeq2SeqTrainer(
         model=model,
         args=training_args,
         train_dataset=ds_train,
