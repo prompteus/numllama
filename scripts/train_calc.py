@@ -52,13 +52,13 @@ sys.modules["svgai.train"] = numllama.addition
 @click.argument("--eval_steps", default=2000, type=int)
 @click.argument("--save_steps", default=2000, type=int)
 @click.argument("--batch_size", default=8, type=int)
-@click.argument("--effective_batch_size", default=8, type=int)
-@click.argument("--lr", default=5e-5, type=int)
+@click.argument("--effective_batch_size", default=32, type=int)
+@click.argument("--learning_rate", default=5e-5, type=int)
 def main(
     use_instructions_train: bool = False,
     use_instructions_val: bool = False,
     model_name: str = "meta-llama/Llama-3.2-1B",
-    num_embeddings_model: Optional[str] = None,
+    num_embeddings_model: Optional[str] = "None",
     freeze_num_embeddings: bool = True,
     limit_train_set_per_ds: int = -1,
     limit_val_set_per_ds: int = 40,  # TODO
