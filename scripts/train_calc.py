@@ -43,6 +43,7 @@ sys.modules["svgai.train"] = numllama.addition
 # print("Running with args: %s" % args)
 
 @app.command()
+@click.argument("--model_name", default="meta-llama/Llama-3.2-1B", type=str)
 @click.argument("--checkpoint_dir", default="checkpoints", type=str)
 @click.argument("--save_total_limit", default=2, type=int)
 @click.argument("--save_total_limit", default=2, type=int)
