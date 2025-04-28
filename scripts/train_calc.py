@@ -38,6 +38,8 @@ parser.add_argument("--lr", default=5e-5, type=int)
 args = parser.parse_args()
 args.freeze_num_embeddings = args.freeze_num_embeddings.lower() != "false"
 
+print("Running with args: %s" % args)
+
 
 @app.command()
 def main(
