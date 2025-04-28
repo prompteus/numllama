@@ -13,11 +13,6 @@ import wandb
 import numllama.metrics
 from scripts import utils
 
-app = typer.Typer(
-    pretty_exceptions_show_locals=False,
-    rich_markup_mode="rich",
-)
-
 logger = logging.getLogger()
 
 sys.modules["svgai"] = numllama
@@ -27,7 +22,7 @@ sys.modules["svgai.train"] = numllama.addition
 parser = argparse.ArgumentParser()
 parser.add_argument("--checkpoint_dir", default="checkpoints", type=str)
 parser.add_argument("--save_total_limit", default=2, type=int)
-parser.add_argument("--num_embeddings_model", default=None, type=str)
+parser.add_argument("--num_embeddings_model", default="None", type=str)
 parser.add_argument("--freeze_num_embeddings", default="False", type=str)
 parser.add_argument("--eval_steps", default=2000, type=int)
 parser.add_argument("--save_steps", default=2000, type=int)
@@ -37,16 +32,18 @@ parser.add_argument("--lr", default=5e-5, type=int)
 
 args = parser.parse_args()
 args.freeze_num_embeddings = args.freeze_num_embeddings.lower() != "false"
+args.num_embeddings_model = None if args.num_embeddings_model.lower() == "none" else args.num_embeddings_model
 
 print("Running with args: %s" % args)
 
+print("Whatever")
 
-@app.command()
+
 def main(
     use_instructions_train: bool = False,
     use_instructions_val: bool = False,
     model_name: str = "meta-llama/Llama-3.2-1B",
-    num_embeddings_model: Optional[str] = args.num_embeddings_model,
+    num_embeddings_model = args.num_embeddings_model,
     limit_train_set_per_ds: int = -1,
     limit_val_set_per_ds: int = 40,  # TODO
     wandb_entity: str = "transformersclub",
@@ -260,8 +257,4 @@ def main(
 
 
 if __name__ == "__main__":
-    try:
-        app()
-    except BaseException as e:
-        print(traceback.format_exc())
-        raise e
+    main()
