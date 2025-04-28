@@ -1,3 +1,4 @@
+import argparse
 import logging
 import sys
 import traceback
@@ -22,21 +23,35 @@ logger = logging.getLogger()
 sys.modules["svgai"] = numllama
 sys.modules["svgai.train"] = numllama.addition
 
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--checkpoint_dir", default="checkpoints", type=str)
+parser.add_argument("--save_total_limit", default=2, type=int)
+parser.add_argument("--num_embeddings_model", default=None, type=str)
+parser.add_argument("--freeze_num_embeddings", default="False", type=str)
+parser.add_argument("--eval_steps", default=2000, type=int)
+parser.add_argument("--save_steps", default=2000, type=int)
+parser.add_argument("--batch_size", default=8, type=int)
+parser.add_argument("--effective_batch_size", default=8, type=int)
+parser.add_argument("--lr", default=5e-5, type=int)
+
+args = parser.parse_args()
+args.freeze_num_embeddings = args.freeze_num_embeddings.lower() != "false"
+
+
 @app.command()
 def main(
-    use_instructions_train: bool = True,
+    use_instructions_train: bool = False,
     use_instructions_val: bool = False,
     model_name: str = "meta-llama/Llama-3.2-1B",
-    # num_embeddings_model: Optional[str] = "/var/tmp/xstefan3/svgai/checkpoints/warm-sunset-628__u99wrvem-global-step=145000__valid-acc=0.999.ckpt",
-    num_embeddings_model: Optional[str] = "/var/tmp/xstefan3/svgai/checkpoints/eternal-monkey-624__vtqqjo78/global-step=25000__valid-acc=0.003.ckpt",
-    # num_embeddings_model: Optional[str] = None,
+    num_embeddings_model: Optional[str] = args.num_embeddings_model,
     limit_train_set_per_ds: int = -1,
     limit_val_set_per_ds: int = 40,  # TODO
     wandb_entity: str = "transformersclub",
     wandb_project: str = "numllama",
     wandb_group: Optional[str] = "",
     wandb_dir: str = ".wandb",
-    checkpoint_dir: str = "checkpoints",
+    checkpoint_dir: str = args.checkpoint_dir,
     train_ds: str = "MU-NLPC/Calc-X",
     train_ds_split_name: str = "train",
     input_col: str = "question",
@@ -45,16 +60,16 @@ def main(
     valid_ds: str = "MU-NLPC/Calc-X",
     valid_ds_subset: Optional[str] = None,
     max_output_length: int = 512,
-    batch_size: int = 4,
-    grad_accum: int = 8,
+    batch_size: int = args.batch_size,
+    grad_accum: int = args.effective_batch_size // args.batch_size,
     eval_batch_size: int = 1,
     optim="adamw_torch",
-    save_total_limit: int = 5,
-    eval_steps: int = 2000,  # = 16000, TODO
-    save_steps: int = 2000,  # = 16000, TODO
-    learning_rate: float = 5e-5,
+    save_total_limit: int = args.save_total_limit,
+    eval_steps: int = args.eval_steps,
+    save_steps: int = args.save_steps,
+    learning_rate: float = args.lr,
     early_stopping_patience: Optional[int] = 20,
-    early_stopping_threshold: float = 0.03,
+    early_stopping_threshold: float = 0.01,
 ) -> None:
     cli_params = locals()
 
@@ -193,14 +208,14 @@ def main(
         learning_rate=learning_rate,
         do_train=True,
         do_eval=True,
-        warmup_steps=1000,
-        max_steps=1_000_000,
+        warmup_steps=2000,
+        max_steps=200_000,
         optim=optim,
         per_device_train_batch_size=batch_size,
         gradient_accumulation_steps=grad_accum,
         per_device_eval_batch_size=eval_batch_size,
         eval_accumulation_steps=1,
-        logging_steps=10,
+        logging_steps=100,
         eval_steps=eval_steps,
         save_steps=save_steps,
         eval_strategy="steps",
@@ -234,8 +249,11 @@ def main(
         compute_metrics=metrics,
         callbacks=callbacks,
     )
-    model.build_num_latents()
-    model.embedding.embs["num"].requires_grad = False
+    if args.freeze_num_embeddings:
+        print("Freezing numeric embeddings in training")
+        model.build_num_latents()
+        model.get_numeric_emb().requires_grad = False
+
     trainer.train()
 
 
