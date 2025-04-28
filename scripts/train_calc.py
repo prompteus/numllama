@@ -4,6 +4,7 @@ import sys
 import traceback
 from typing import Optional
 
+import click
 import datasets
 import numpy as np
 import transformers
@@ -13,44 +14,58 @@ import wandb
 import numllama.metrics
 from scripts import utils
 
+app = typer.Typer(
+    pretty_exceptions_show_locals=False,
+    rich_markup_mode="rich",
+)
+
 logger = logging.getLogger()
 
 sys.modules["svgai"] = numllama
 sys.modules["svgai.train"] = numllama.addition
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--checkpoint_dir", default="checkpoints", type=str)
-parser.add_argument("--save_total_limit", default=2, type=int)
-parser.add_argument("--num_embeddings_model", default="None", type=str)
-parser.add_argument("--freeze_num_embeddings", default="False", type=str)
-parser.add_argument("--eval_steps", default=2000, type=int)
-parser.add_argument("--save_steps", default=2000, type=int)
-parser.add_argument("--batch_size", default=8, type=int)
-parser.add_argument("--effective_batch_size", default=8, type=int)
-parser.add_argument("--lr", default=5e-5, type=int)
+# parser = argparse.ArgumentParser()
+# parser.add_argument("--checkpoint_dir", default="checkpoints", type=str)
+# parser.add_argument("--save_total_limit", default=2, type=int)
+# parser.add_argument("--num_embeddings_model", default="None", type=str)
+# parser.add_argument("--freeze_num_embeddings", default="False", type=str)
+# parser.add_argument("--eval_steps", default=2000, type=int)
+# parser.add_argument("--save_steps", default=2000, type=int)
+# parser.add_argument("--batch_size", default=8, type=int)
+# parser.add_argument("--effective_batch_size", default=8, type=int)
+# parser.add_argument("--lr", default=5e-5, type=int)
+#
+# args = parser.parse_args()
+# args.freeze_num_embeddings = args.freeze_num_embeddings.lower() != "false"
+# args.num_embeddings_model = None if args.num_embeddings_model.lower() == "none" else args.num_embeddings_model
+#
+# print("Running with args: %s" % args)
 
-args = parser.parse_args()
-args.freeze_num_embeddings = args.freeze_num_embeddings.lower() != "false"
-args.num_embeddings_model = None if args.num_embeddings_model.lower() == "none" else args.num_embeddings_model
-
-print("Running with args: %s" % args)
-
-print("Whatever")
-
-
+@app.command()
+@click.argument("--checkpoint_dir", default="checkpoints", type=str)
+@click.argument("--save_total_limit", default=2, type=int)
+@click.argument("--save_total_limit", default=2, type=int)
+@click.argument("--num_embeddings_model", default="None", type=str)
+@click.argument("--freeze_num_embeddings", default=True, type=bool)
+@click.argument("--eval_steps", default=2000, type=int)
+@click.argument("--save_steps", default=2000, type=int)
+@click.argument("--batch_size", default=8, type=int)
+@click.argument("--effective_batch_size", default=8, type=int)
+@click.argument("--lr", default=5e-5, type=int)
 def main(
     use_instructions_train: bool = False,
     use_instructions_val: bool = False,
     model_name: str = "meta-llama/Llama-3.2-1B",
-    num_embeddings_model = args.num_embeddings_model,
+    num_embeddings_model: Optional[str] = None,
+    freeze_num_embeddings: bool = True,
     limit_train_set_per_ds: int = -1,
     limit_val_set_per_ds: int = 40,  # TODO
     wandb_entity: str = "transformersclub",
     wandb_project: str = "numllama",
     wandb_group: Optional[str] = "",
     wandb_dir: str = ".wandb",
-    checkpoint_dir: str = args.checkpoint_dir,
+    checkpoint_dir: str = "checkpoints",
     train_ds: str = "MU-NLPC/Calc-X",
     train_ds_split_name: str = "train",
     input_col: str = "question",
@@ -59,18 +74,20 @@ def main(
     valid_ds: str = "MU-NLPC/Calc-X",
     valid_ds_subset: Optional[str] = None,
     max_output_length: int = 512,
-    batch_size: int = args.batch_size,
-    grad_accum: int = args.effective_batch_size // args.batch_size,
+    batch_size: int = 8,
+    effective_batch_size: int = 32,
     eval_batch_size: int = 1,
     optim="adamw_torch",
-    save_total_limit: int = args.save_total_limit,
-    eval_steps: int = args.eval_steps,
-    save_steps: int = args.save_steps,
-    learning_rate: float = args.lr,
+    save_total_limit: int = 2,
+    eval_steps: int = 100,
+    save_steps: int = 20000,
+    learning_rate: float = 2e-4,
     early_stopping_patience: Optional[int] = 20,
     early_stopping_threshold: float = 0.01,
 ) -> None:
     cli_params = locals()
+
+    grad_accum = effective_batch_size // batch_size
 
     # # ORIGINAL CALC-X code: T5 + gadgets
     #
@@ -81,7 +98,7 @@ def main(
     # model = model_class.from_pretrained(model_name, torch_dtype=torch.bfloat16)
     # assert isinstance(model, gadgets.model.GadgetAssist)
     # tokenizer = transformers.AutoTokenizer.from_pretrained(model_name, use_fast=False)
-    if num_embeddings_model is not None:
+    if num_embeddings_model.lower() != "none":
         addition_model = numllama.addition.AdditionLightning.load_from_checkpoint(num_embeddings_model)
         numeric_input_emb_config = addition_model.model.embedding_config.model_dump()
         numeric_encoder_config = addition_model.model.num_encoder_config
@@ -248,7 +265,7 @@ def main(
         compute_metrics=metrics,
         callbacks=callbacks,
     )
-    if args.freeze_num_embeddings:
+    if num_embeddings_model.lower() != "none" and freeze_num_embeddings:
         print("Freezing numeric embeddings in training")
         model.build_num_latents()
         model.get_numeric_emb().requires_grad = False
@@ -257,4 +274,8 @@ def main(
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        app()
+    except BaseException as e:
+        print(traceback.format_exc())
+        raise e
