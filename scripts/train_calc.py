@@ -53,7 +53,7 @@ def main(
     eval_steps: int = 2000,
     save_steps: int = 20000,
     learning_rate: float = 2e-4,
-    early_stopping_patience: Optional[int] = 20,
+    early_stopping_patience: Optional[int] = 100,
     early_stopping_threshold: float = 0.01,
 ) -> None:
     cli_params = locals()
