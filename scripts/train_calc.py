@@ -102,6 +102,8 @@ def main(
     else:
         model = numllama.numllama.BaselineLlamaForCausalLM.from_pretrained(model_name)
         tokenizer = transformers.AutoTokenizer.from_pretrained(model_name, use_fast=False)
+        if not tokenizer:  # tokenizer apparently does not support use_fast=False -> skip it
+            tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
 
     tokenizer.pad_token = tokenizer.eos_token
     model.tokenizer = tokenizer
