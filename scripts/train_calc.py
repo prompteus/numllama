@@ -1,10 +1,8 @@
-import argparse
 import logging
 import sys
 import traceback
 from typing import Optional
 
-import click
 import datasets
 import numpy as np
 import transformers
@@ -25,35 +23,7 @@ sys.modules["svgai"] = numllama
 sys.modules["svgai.train"] = numllama.addition
 
 
-# parser = argparse.ArgumentParser()
-# parser.add_argument("--checkpoint_dir", default="checkpoints", type=str)
-# parser.add_argument("--save_total_limit", default=2, type=int)
-# parser.add_argument("--num_embeddings_model", default="None", type=str)
-# parser.add_argument("--freeze_num_embeddings", default="False", type=str)
-# parser.add_argument("--eval_steps", default=2000, type=int)
-# parser.add_argument("--save_steps", default=2000, type=int)
-# parser.add_argument("--batch_size", default=8, type=int)
-# parser.add_argument("--effective_batch_size", default=8, type=int)
-# parser.add_argument("--lr", default=5e-5, type=int)
-#
-# args = parser.parse_args()
-# args.freeze_num_embeddings = args.freeze_num_embeddings.lower() != "false"
-# args.num_embeddings_model = None if args.num_embeddings_model.lower() == "none" else args.num_embeddings_model
-#
-# print("Running with args: %s" % args)
-
 @app.command()
-@click.argument("--model_name", default="meta-llama/Llama-3.2-1B", type=str)
-@click.argument("--checkpoint_dir", default="checkpoints", type=str)
-@click.argument("--save_total_limit", default=2, type=int)
-@click.argument("--save_total_limit", default=2, type=int)
-@click.argument("--num_embeddings_model", default="None", type=str)
-@click.argument("--freeze_num_embeddings", default=True, type=bool)
-@click.argument("--eval_steps", default=2000, type=int)
-@click.argument("--save_steps", default=2000, type=int)
-@click.argument("--batch_size", default=8, type=int)
-@click.argument("--effective_batch_size", default=32, type=int)
-@click.argument("--learning_rate", default=5e-5, type=int)
 def main(
     use_instructions_train: bool = False,
     use_instructions_val: bool = False,
