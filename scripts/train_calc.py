@@ -29,7 +29,7 @@ def main(
     use_instructions_val: bool = False,
     model_name: str = "meta-llama/Llama-3.2-1B",
     num_embeddings_model: Optional[str] = "None",
-    freeze_num_embeddings: bool = True,
+    freeze_input_embeddings: bool = True,
     limit_train_set_per_ds: int = -1,
     limit_val_set_per_ds: int = 40,  # TODO
     wandb_entity: str = "transformersclub",
@@ -238,10 +238,14 @@ def main(
         compute_metrics=metrics,
         callbacks=callbacks,
     )
-    if num_embeddings_model.lower() != "none" and freeze_num_embeddings:
-        print("Freezing numeric embeddings in training")
-        model.build_num_latents()
-        model.get_numeric_emb().requires_grad = False
+    if freeze_input_embeddings:
+        if num_embeddings_model.lower() != "none":
+            print("Freezing num embeddings in training")
+            model.build_num_latents()
+            model.get_numeric_emb().requires_grad = False
+        else:
+            print("Freezing input embeddings in training")
+            model.model.embed_tokens.requires_grad = False
 
     trainer.train()
 
