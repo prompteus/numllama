@@ -11,6 +11,7 @@ import wandb
 
 import numllama.metrics
 from scripts import utils
+from scripts.permutation_utils import StepPermuter
 
 app = typer.Typer(
     pretty_exceptions_show_locals=False,
@@ -27,6 +28,7 @@ sys.modules["svgai.train"] = numllama.addition
 def main(
     use_instructions_train: bool = False,
     use_instructions_val: bool = False,
+    permute_numbers: bool = False,
     model_name: str = "meta-llama/Llama-3.2-1B",
     num_embeddings_model: Optional[str] = "None",
     freeze_input_embeddings: bool = True,
@@ -108,15 +110,15 @@ def main(
     tokenizer.pad_token = tokenizer.eos_token
     model.tokenizer = tokenizer
 
-    wandb.init(
-        entity=wandb_entity,
-        project=wandb_project,
-        tags=[model_name, "supervised"],
-        group=wandb_group,
-        dir=wandb_dir,
-    )
-
-    wandb.config.update({"cli_params": cli_params})
+    # wandb.init(
+    #     entity=wandb_entity,
+    #     project=wandb_project,
+    #     tags=[model_name, "supervised"],
+    #     group=wandb_group,
+    #     dir=wandb_dir,
+    # )
+    #
+    # wandb.config.update({"cli_params": cli_params})
 
     # # ORIGINAL CALC-X code
     #
@@ -166,9 +168,18 @@ def main(
     if use_instructions_val:
         ds_valid = ds_valid.map(add_instruction)
 
-    def preprocess(example, label_col):
-        input_text = [text.replace(">", "> ").replace("<", " <").replace("_", "") for text in example[input_col]]
-        input_label = [text.replace(">", "> ").replace("<", " <").replace("_", "") for text in example[label_col]]
+    permuter = StepPermuter(tokenizer)
+
+    def preprocess(example, label_col, permute: bool = True):
+        questions = example[input_col]
+        chains = example[label_col]
+
+        if permute:
+            for i in range(len(example[input_col])):
+                questions[i], chains[i] = permuter.permute_chain(questions[i], chains[i])
+
+        input_text = [text.replace(">", "> ").replace("<", " <").replace("_", "") for text in questions]
+        input_label = [text.replace(">", "> ").replace("<", " <").replace("_", "") for text in chains]
         inputs = tokenizer(input_text, truncation=True, max_length=max_output_length)
         labels = tokenizer(text_target=input_label, truncation=True, max_length=max_output_length)
 
@@ -179,8 +190,8 @@ def main(
 
         return {"input_ids": inputs_labels, "labels": labels_ignored}
 
-    ds_train = ds_train.map(preprocess, batched=True, fn_kwargs={"label_col": train_label_col})
-    ds_valid = ds_valid.map(preprocess, batched=True, fn_kwargs={"label_col": valid_label_col})
+    ds_train = ds_train.map(preprocess, batched=True, fn_kwargs={"label_col": train_label_col, "permute": permute_numbers})
+    ds_valid = ds_valid.map(preprocess, batched=True, fn_kwargs={"label_col": valid_label_col, "permute": permute_numbers})
     ds_train = ds_train.shuffle(seed=0)
 
     callbacks = []
