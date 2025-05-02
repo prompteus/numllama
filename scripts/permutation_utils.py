@@ -66,6 +66,7 @@ class StepPermuter:
             question_without_choices = question
 
         all_results_positive = False
+        num_iters = 0
         while not all_results_positive:
             all_results_positive = True  # passing the non-repeat condition unless the check of new results fails
             # permute numbers in the question (first step)
@@ -114,6 +115,7 @@ class StepPermuter:
 
                 out_steps.append(self._replace_all(step, replaces_map))
 
+        print("Constructed altered chain in %s attempts." % num_iters)
         # if multi_choice_sep is not None:
         #     # replace the original options with the occurrence of the correct result on the same position
         #     # question, options = out_steps[0].split("Pick one:", maxsplit=2)
