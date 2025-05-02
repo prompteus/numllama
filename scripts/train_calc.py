@@ -8,6 +8,7 @@ import numpy as np
 import transformers
 import typer
 import wandb
+import re
 
 import numllama.metrics
 from scripts import utils
@@ -170,6 +171,13 @@ def main(
 
     permuter = StepPermuter(tokenizer)
 
+    def _preproc_nums(input_str: str, space_nums: bool = True) -> str:
+        # transformations needed for a correct functioning of the num-augmented tokenizer
+        flat_numbers_input_str = input_str.replace("_", "")
+        if space_nums:
+            flat_numbers_input_str = re.sub(r'\s*(\d+(?:\.\d+)?)\s*', r' \1 ', flat_numbers_input_str)
+        return flat_numbers_input_str
+
     def preprocess(example, label_col, permute: bool = True):
         questions = example[input_col]
         chains = example[label_col]
@@ -178,8 +186,8 @@ def main(
             for i in range(len(example[input_col])):
                 questions[i], chains[i] = permuter.permute_chain(questions[i], chains[i])
 
-        input_text = [text.replace(">", "> ").replace("<", " <").replace("_", "") for text in questions]
-        input_label = [text.replace(">", "> ").replace("<", " <").replace("_", "") for text in chains]
+        input_text = [_preproc_nums(text) for text in questions]
+        input_label = [_preproc_nums(text) for text in chains]
         inputs = tokenizer(input_text, truncation=True, max_length=max_output_length)
         labels = tokenizer(text_target=input_label, truncation=True, max_length=max_output_length)
 

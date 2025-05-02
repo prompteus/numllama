@@ -51,7 +51,10 @@ class StepPermuter:
             out_text = out_text.replace(orig, repl)
         return out_text
 
-    def _permute_numbers_all_steps(self, sample_steps: list[str]) -> tuple[list[str], str]:
+    def _permute_numbers_all_steps(self,
+                                   sample_steps: list[str],
+                                   supported_range_start: int = 0,
+                                   supported_range_end: int = 130_000) -> tuple[list[str], str]:
         calculator = gadgets.gadget.Calculator()
         question = sample_steps[0]
         # we assume that the given questions already do not contain options -- we have
@@ -109,11 +112,24 @@ class StepPermuter:
                     #     continue
                     new_gadget_output = calculator(gadget_input, add_approx=False)
                     last_result = new_gadget_output
-                    if new_gadget_output.startswith("-"):
-                        all_results_positive = False
+                    try:
+                        new_output_float = float(new_gadget_output)
+                        if supported_range_start <= new_output_float <= supported_range_end:
+                            all_results_positive = False
+                    except ValueError:
+                        # output unparseable as number -> check positivity only as string
+                        if new_gadget_output.startswith("-"):
+                            all_results_positive = False
+
                     replaces_map[orig_gadget_output] = new_gadget_output.split(" = around")[0]
 
                 out_steps.append(self._replace_all(step, replaces_map))
+
+            if not all_results_positive:
+                num_iters += 1
+            if num_iters > 5:
+                print("Skipping altering a chain because of more than 5 unsuccessful attempts.")
+                break
 
         print("Constructed altered chain in %s attempts." % num_iters)
         # if multi_choice_sep is not None:
@@ -125,9 +141,12 @@ class StepPermuter:
 
         return out_steps, last_result  # altered steps + the most-recent, altered output (=final result)
 
+    choice_map = ["A", "B", "C", "D", "E", "$"]
+
     def _replace_choice(self, step: str, choice: str, value: str) -> str:
         # replaces the value of choice in the given step with the passed value
-        orig_result = re.findall(f"{choice}.+(\d+)", step)[0]
+        end_choice = self.choice_map[self.choice_map.index(choice)+1]
+        orig_result = re.findall("%s[^a-zA-Z0-9]+(.+?)[^a-zA-Z0-9]*%s" % (choice, end_choice), step)[0]
         return step.replace(orig_result, value)
 
     def permute_all_steps(self, sample_steps: list[str]) -> list[str]:
