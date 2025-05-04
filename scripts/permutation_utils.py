@@ -134,7 +134,7 @@ class StepPermuter:
                         raise
                     last_result = new_gadget_output
                     try:
-                        new_output_float = float(new_gadget_output)
+                        new_output_float = float(new_gadget_output.split(" = around")[0])
                         if supported_range_start <= new_output_float <= supported_range_end:
                             all_results_positive = False
                             break
