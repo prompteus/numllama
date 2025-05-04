@@ -159,9 +159,8 @@ class StepPermuter:
             new_result_elem = bs4.BeautifulSoup(sample_steps[-1], features="html.parser")
             result_value_or_choice = next(str(el.contents[0]) for el in new_result_elem.contents
                                           if isinstance(el, bs4.Tag) and el.name == "result")
-            try:
-                float(result_value_or_choice[0])
-            except ValueError:
+
+            if result_value_or_choice.strip().upper() in self.choice_map:
                 # multiple-choice -> replace the value at the corresponding choice with the new result
                 output_steps[0] = self._replace_choice(output_steps[0], result_value_or_choice, new_result)
 
