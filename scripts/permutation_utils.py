@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import random
 import re
 from typing import Optional
@@ -110,6 +111,11 @@ class StepPermuter:
                     # if "**" in gadget_input and gadget_input.count("_") > 3:
                     #     print("Calc input:" + gadget_input)
                     #     continue
+                    if "**" in gadget_input and (float(gadget_input.split("**")[0]) >= math.sqrt(supported_range_end)
+                                                 or float(gadget_input.split("**")[1]) > 10):
+                        # this would cause the calculator to halt, so we skip the whole permutation alltogether
+                        all_results_positive = False
+                        break
                     new_gadget_output = calculator(gadget_input, add_approx=False)
                     last_result = new_gadget_output
                     try:
