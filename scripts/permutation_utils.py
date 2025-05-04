@@ -136,12 +136,18 @@ class StepPermuter:
                         new_output_float = float(new_gadget_output)
                         if supported_range_start <= new_output_float <= supported_range_end:
                             all_results_positive = False
+                            break
                     except ValueError:
                         # output unparseable as number -> check positivity only as string
                         if new_gadget_output.startswith("-"):
                             all_results_positive = False
+                            break
 
                     replaces_map[orig_gadget_output] = new_gadget_output.split(" = around")[0]
+
+                if not all_results_positive:
+                    break
+
 
                 out_steps.append(self._replace_all(step, replaces_map))
 
