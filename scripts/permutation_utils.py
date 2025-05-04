@@ -130,6 +130,7 @@ class StepPermuter:
                         new_gadget_output = calculator(gadget_input, add_approx=False)
                     except KeyboardInterrupt:
                         print("Interrupted on input %s" % gadget_input)
+                        print("Replacement map %s" % replaces_map)
                         raise
                     last_result = new_gadget_output
                     try:
