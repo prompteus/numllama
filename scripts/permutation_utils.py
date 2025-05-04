@@ -144,7 +144,7 @@ class StepPermuter:
                             all_results_positive = False
                             break
 
-                    replaces_map[orig_gadget_output] = new_gadget_output.split(" = around")[0]
+                    replaces_map[orig_gadget_output] = new_gadget_output
 
                 if not all_results_positive:
                     break
