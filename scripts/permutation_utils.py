@@ -122,7 +122,11 @@ class StepPermuter:
                             # ValueError: could not convert string to float: ' (1/2)'
                             # -> usually caused by fraction exponents, not causing calculator overflow
                             continue
-                    new_gadget_output = calculator(gadget_input, add_approx=False)
+                    try:
+                        new_gadget_output = calculator(gadget_input, add_approx=False)
+                    except KeyboardInterrupt:
+                        print("Interrupted on input %s" % gadget_input)
+                        raise
                     last_result = new_gadget_output
                     try:
                         new_output_float = float(new_gadget_output)
