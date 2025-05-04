@@ -113,9 +113,16 @@ class StepPermuter:
                     #     continue
                     if "**" in gadget_input and (float(gadget_input.split("**")[0]) >= math.sqrt(supported_range_end)
                                                  or float(gadget_input.split("**")[1]) > 10):
-                        # this would cause the calculator to halt, so we skip the whole permutation alltogether
-                        all_results_positive = False
-                        break
+                        try:
+                            base, exp = (float(i) for i in gadget_input.split("**"))
+                            if base >= math.sqrt(supported_range_end) or exp > 10:
+                                # this would cause the calculator to halt, so we skip the whole permutation alltogether
+                                all_results_positive = False
+                                break
+                        except ValueError:
+                            # ValueError: could not convert string to float: ' (1/2)'
+                            # -> usually caused by fraction exponents, not causing calculator overflow
+                            continue
                     new_gadget_output = calculator(gadget_input, add_approx=False)
                     last_result = new_gadget_output
                     try:
