@@ -111,8 +111,7 @@ class StepPermuter:
                     # if "**" in gadget_input and gadget_input.count("_") > 3:
                     #     print("Calc input:" + gadget_input)
                     #     continue
-                    if "**" in gadget_input and (float(gadget_input.split("**")[0]) >= math.sqrt(supported_range_end)
-                                                 or float(gadget_input.split("**")[1]) > 10):
+                    if "**" in gadget_input:
                         try:
                             base, exp = (float(i) for i in gadget_input.split("**"))
                             if base >= math.sqrt(supported_range_end) or exp > 10:
