@@ -52,7 +52,7 @@ def main(
     effective_batch_size: int = 32,
     eval_batch_size: int = 1,
     optim="adamw_torch",
-    save_total_limit: int = 2,
+    save_total_limit: int = 5,
     eval_steps: int = 2000,
     save_steps: int = 20000,
     learning_rate: float = 2e-4,
@@ -111,15 +111,15 @@ def main(
     tokenizer.pad_token = tokenizer.eos_token
     model.tokenizer = tokenizer
 
-    # wandb.init(
-    #     entity=wandb_entity,
-    #     project=wandb_project,
-    #     tags=[model_name, "supervised"],
-    #     group=wandb_group,
-    #     dir=wandb_dir,
-    # )
-    #
-    # wandb.config.update({"cli_params": cli_params})
+    wandb.init(
+        entity=wandb_entity,
+        project=wandb_project,
+        tags=[model_name, "supervised"],
+        group=wandb_group,
+        dir=wandb_dir,
+    )
+
+    wandb.config.update({"cli_params": cli_params})
 
     # # ORIGINAL CALC-X code
     #
