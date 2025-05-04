@@ -122,7 +122,7 @@ class StepPermuter:
                             # ValueError: could not convert string to float: ' (1/2)'
                             # -> usually caused by fraction exponents, not causing calculator overflow
                             continue
-                    elif "factorial" in gadget_input:
+                    elif "factorial" in gadget_input or "binomial" in gadget_input:
                         # in the case of factorial, this will most likely explode
                         all_results_positive = False
                         break
@@ -144,7 +144,7 @@ class StepPermuter:
                             all_results_positive = False
                             break
 
-                    replaces_map[orig_gadget_output] = new_gadget_output
+                    replaces_map[orig_gadget_output] = new_gadget_output.split(" = around")[0]
 
                 if not all_results_positive:
                     break
