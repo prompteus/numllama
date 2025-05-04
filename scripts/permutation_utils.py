@@ -128,10 +128,10 @@ class StepPermuter:
             if not all_results_positive:
                 num_iters += 1
             if num_iters > 5:
-                print("Skipping altering a chain because of more than 5 unsuccessful attempts.")
+                # print("Skipping altering a chain because of more than 5 unsuccessful attempts.")
                 break
 
-        print("Constructed altered chain in %s attempts." % num_iters)
+        # print("Constructed altered chain in %s attempts." % num_iters)
         # if multi_choice_sep is not None:
         #     # replace the original options with the occurrence of the correct result on the same position
         #     # question, options = out_steps[0].split("Pick one:", maxsplit=2)
