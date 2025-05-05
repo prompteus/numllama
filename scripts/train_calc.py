@@ -99,9 +99,22 @@ def main(
                 tokenizer,
                 model
         )
-
         num_state_dict = addition_model.model.embedding.state_dict()
         model.get_numeric_emb().load_state_dict(num_state_dict)
+
+        # resolve linear glue if possible
+        glue_dims_match = (
+            model.embedding.embs["num"].to_model_dim.in_features == addition_model.model.to_model_dim.in_features
+            and model.embedding.embs["num"].to_model_dim.out_features == addition_model.model.to_model_dim.out_features
+            and model.embedding.embs["num"].to_embed_dim.in_features == addition_model.model.from_model_dim.in_features
+            and model.embedding.embs["num"].to_embed_dim.out_features == addition_model.model.from_model_dim.out_features
+        )
+        if glue_dims_match:
+            model.embedding.embs["num"].to_model_dim.load_state_dict(addition_model.model.to_model_dim.state_dict())
+            model.embedding.embs["num"].to_embed_dim.load_state_dict(addition_model.model.from_model_dim.state_dict())
+            logger.info("The glue linear layers successfully reloaded.")
+        else:
+            logger.warning("Model and embedding glue dims do not match. The glue linear layers are newly trained!")
 
     else:
         model = numllama.numllama.BaselineLlamaForCausalLM.from_pretrained(model_name)
@@ -111,6 +124,7 @@ def main(
 
     tokenizer.pad_token = tokenizer.eos_token
     model.tokenizer = tokenizer
+    model.generation_config.max_new_tokens = max_output_length
 
     wandb.init(
         entity=wandb_entity,
@@ -236,7 +250,7 @@ def main(
         bf16_full_eval=True,
         predict_with_generate=True,
         gradient_checkpointing=True,
-        generation_max_length=max_output_length,
+        # generation_max_length=max_output_length,
         include_inputs_for_metrics=True,
         report_to="wandb",
         metric_for_best_model="avg_correct_results",
