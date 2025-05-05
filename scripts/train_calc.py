@@ -48,7 +48,7 @@ def main(
     valid_label_col: str = "chain",
     valid_ds: str = "MU-NLPC/Calc-X",
     valid_ds_subset: Optional[str] = None,
-    max_output_length: int = 2048,
+    max_output_length: int = 1024,
     batch_size: int = 8,
     effective_batch_size: int = 32,
     eval_batch_size: int = 1,
