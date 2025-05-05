@@ -29,7 +29,8 @@ sys.modules["svgai.train"] = numllama.addition
 def main(
     use_instructions_train: bool = False,
     use_instructions_val: bool = False,
-    permute_numbers: bool = False,
+    permute_train_numbers: bool = False,
+    permute_val_numbers: bool = False,
     model_name: str = "meta-llama/Llama-3.2-1B",
     num_embeddings_model: Optional[str] = "None",
     freeze_input_embeddings: bool = True,
@@ -47,7 +48,7 @@ def main(
     valid_label_col: str = "chain",
     valid_ds: str = "MU-NLPC/Calc-X",
     valid_ds_subset: Optional[str] = None,
-    max_output_length: int = 512,
+    max_output_length: int = 2048,
     batch_size: int = 8,
     effective_batch_size: int = 32,
     eval_batch_size: int = 1,
@@ -169,7 +170,6 @@ def main(
     if use_instructions_val:
         ds_valid = ds_valid.map(add_instruction)
 
-    permuter = StepPermuter(tokenizer)
 
     def _preproc_nums(input_str: str, space_nums: bool = True) -> str:
         # transformations needed for a correct functioning of the num-augmented tokenizer
@@ -178,7 +178,7 @@ def main(
             flat_numbers_input_str = re.sub(r'\s*(\d+(?:\.\d+)?)\s*', r' \1 ', flat_numbers_input_str)
         return flat_numbers_input_str
 
-    def preprocess(example, label_col, permute: bool = True):
+    def preprocess(example, label_col, permute: bool = True, permuter: Optional[StepPermuter] = None):
         questions = example[input_col]
         chains = example[label_col]
 
@@ -198,8 +198,13 @@ def main(
 
         return {"input_ids": inputs_labels, "labels": labels_ignored}
 
-    ds_train = ds_train.map(preprocess, batched=True, fn_kwargs={"label_col": train_label_col, "permute": permute_numbers})
-    ds_valid = ds_valid.map(preprocess, batched=True, fn_kwargs={"label_col": valid_label_col, "permute": permute_numbers})
+    ds_train = ds_train.map(preprocess, batched=True, fn_kwargs={"label_col": train_label_col,
+                                                                 "permute": permute_train_numbers,
+                                                                 "permuter": StepPermuter(tokenizer, seed=42)})
+    # TODO: try also to not permute the val set, to see if permutation helps num embeddings in general
+    ds_valid = ds_valid.map(preprocess, batched=True, fn_kwargs={"label_col": valid_label_col,
+                                                                 "permute": permute_val_numbers,
+                                                                 "permuter": StepPermuter(tokenizer, seed=42)})
     ds_train = ds_train.shuffle(seed=0)
 
     callbacks = []

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import math
 import random
 import re
 from typing import Optional
 
 import bs4
-from bs4 import Tag
+import math
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
 import numllama as gadgets  # The only change compared to steps_utils.py in git:calc-x/steps-consistency
@@ -31,8 +30,11 @@ def separate_chain_to_steps(chain: str, special_sep_token: Optional[str] = None)
 class StepPermuter:
     numeral_re = re.compile(r"\d+(?:\.\d+)?")
 
-    def __init__(self, tokenizer: PreTrainedTokenizerBase):
+    def __init__(self, tokenizer: PreTrainedTokenizerBase, seed: int):
         self.tokenizer = tokenizer
+        random.seed(seed)
+        self.num_altered = 0
+        self.num_all = 0
 
     def _replace_num(self, number: int | float, contains_exp: bool = False) -> str:
         # replace with a number of a similar scale as the original
@@ -55,7 +57,8 @@ class StepPermuter:
     def _permute_numbers_all_steps(self,
                                    sample_steps: list[str],
                                    supported_range_start: int = 0,
-                                   supported_range_end: int = 130_000) -> tuple[list[str], str]:
+                                   supported_range_end: int = 130_000,
+                                   max_attempts: int = 10) -> tuple[list[str], str | None]:
         calculator = gadgets.gadget.Calculator()
         question = sample_steps[0]
         # we assume that the given questions already do not contain options -- we have
@@ -135,7 +138,7 @@ class StepPermuter:
                     last_result = new_gadget_output
                     try:
                         new_output_float = float(new_gadget_output.split(" = around")[0])
-                        if supported_range_start <= new_output_float <= supported_range_end:
+                        if not (supported_range_start <= new_output_float <= supported_range_end):
                             all_results_positive = False
                             break
                     except ValueError:
@@ -154,9 +157,9 @@ class StepPermuter:
 
             if not all_results_positive:
                 num_iters += 1
-            if num_iters > 5:
+            if num_iters > max_attempts:
                 # print("Skipping altering a chain because of more than 5 unsuccessful attempts.")
-                break
+                return sample_steps, None
 
         # print("Constructed altered chain in %s attempts." % num_iters)
         # if multi_choice_sep is not None:
@@ -165,7 +168,7 @@ class StepPermuter:
         #     # out_steps[0] = "Pick one:".join([question, self._replace_all(options, replaces_map)])
         #
         #     out_steps[0] = question_without_choices
-
+        self.num_altered += 1
         return out_steps, last_result  # altered steps + the most-recent, altered output (=final result)
 
     choice_map = ["A", "B", "C", "D", "E", "$"]
@@ -194,6 +197,9 @@ class StepPermuter:
         return output_steps
 
     def permute_chain(self, question: str, chain: str) -> tuple[str, str]:
+        self.num_all += 1
         separated_steps, sep = separate_chain_to_steps(chain)
         out_steps = self.permute_all_steps([question, *separated_steps])
+        if self.num_all % 100 == 0:
+            print("Permuted {:.2f}% of input chains".format(self.num_altered / self.num_all * 100))
         return out_steps[0], sep.join(out_steps[1:])

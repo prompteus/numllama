@@ -34,7 +34,7 @@ class Calculator(Gadget):
 
     @staticmethod
     def format_sympy_float(x: sympy.core.numbers.Float) -> str:
-        return f"{float(x):_.6f}".rstrip("0").rstrip(".")
+        return f"{float(x):.6f}".rstrip("0").rstrip(".")
 
     @staticmethod
     def format_sympy_int(x: sympy.core.numbers.Integer) -> str:
