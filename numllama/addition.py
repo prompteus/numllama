@@ -1,14 +1,14 @@
 import itertools
-import math
 import random
 from typing import Any, Iterator, Self
 
 import hydra
-import lightning
 import lightning.pytorch.utilities
+import math
 import pydantic
 import torch
 import torchmetrics
+import transformers
 from torch import Tensor
 
 import numllama.nn
@@ -70,6 +70,7 @@ class AdditionTransformerConfig(pydantic.BaseModel):
     activation_fn: dict[str, Any]
     dropout: float
     input_dropout: float
+    ommit_glue_if_compatible_dims: bool = False
 
 
 class NumEmbeddingConfig(pydantic.BaseModel):
@@ -86,6 +87,7 @@ class LatentEmbeddingAdditionModel(torch.nn.Module):
         embedding_config: NumEmbeddingConfig,
         num_encoder_config: dict[str, Any],
         transformer_config: AdditionTransformerConfig,
+        pretrained_model: str | None = None,
     ):
         super().__init__()
         self.embedding_config = embedding_config
@@ -116,20 +118,36 @@ class LatentEmbeddingAdditionModel(torch.nn.Module):
         self.positional_embedding = torch.nn.Embedding(3, transformer_config.model_dim)
         self.output_token_embedding = torch.nn.Parameter(torch.empty(transformer_config.model_dim))
 
-        self.to_model_dim = torch.nn.Linear(input_embedding.embedding_dim, transformer_config.model_dim)
-        self.from_model_dim = torch.nn.Linear(transformer_config.model_dim, input_embedding.embedding_dim)
+        self.to_model_dim: torch.nn.Module
+        self.from_model_dim: torch.nn.Module
+        if (input_embedding.embedding_dim == transformer_config.model_dim
+                and hasattr(transformer_config, "ommit_glue_if_compatible_dims")  # just for backwards compatibility
+                and transformer_config.ommit_glue_if_compatible_dims
+            ):
+            self.to_model_dim = torch.nn.Identity()
+            self.from_model_dim = torch.nn.Identity()
+        else:
+            self.to_model_dim = torch.nn.Linear(input_embedding.embedding_dim, transformer_config.model_dim)
+            self.from_model_dim = torch.nn.Linear(transformer_config.model_dim, input_embedding.embedding_dim)
+
         self.input_dropout = torch.nn.Dropout(transformer_config.input_dropout)
-        self.transformer = torch.nn.TransformerEncoder(
-            encoder_layer=torch.nn.TransformerEncoderLayer(
-                d_model=transformer_config.model_dim,
-                nhead=transformer_config.num_heads,
-                dim_feedforward=transformer_config.ff_dim,
-                dropout=transformer_config.dropout,
-                activation=hydra.utils.instantiate(transformer_config.activation_fn),
-                batch_first=True,
-            ),
-            num_layers=transformer_config.num_blocks,
-        )
+
+        if pretrained_model is not None:
+            self.pretrained_model = transformers.AutoModelForCausalLM.from_pretrained(pretrained_model)
+            self.pretrained_model.requires_grad = False
+        else:
+            self.transformer = torch.nn.TransformerEncoder(
+                    encoder_layer=torch.nn.TransformerEncoderLayer(
+                            d_model=transformer_config.model_dim,
+                            nhead=transformer_config.num_heads,
+                            dim_feedforward=transformer_config.ff_dim,
+                            dropout=transformer_config.dropout,
+                            activation=hydra.utils.instantiate(transformer_config.activation_fn),
+                            batch_first=True,
+                    ),
+                    num_layers=transformer_config.num_blocks,
+            )
+
         self.reset_parameters()
 
     @torch.no_grad()
@@ -145,7 +163,9 @@ class LatentEmbeddingAdditionModel(torch.nn.Module):
             x3 = self.output_token_embedding.unsqueeze(0).expand_as(x[..., :1, :])
             x = torch.concat([x, x3], dim=-2)
             x = self.input_dropout(x)
-            x = self.transformer(x)
+            # TODO: pretrained_model could use its own batch size resolution
+            transformer_output = self.pretrained_model(inputs_embeds=x, output_hidden_states=True)
+            x = transformer_output.hidden_states[-1]
             x3 = x[..., -1, :]
             x3 = self.from_model_dim(x3)
             logits = self.embedding.decode(x3)
@@ -166,13 +186,17 @@ class AdditionLightning(lightning.LightningModule):
         transformer_config: AdditionTransformerConfig,
         optimizer_config: OptimizerConfig,
         loss_config: dict[str, Any],
+        pretrained_model: str | None = None,
+        logit_regularization: float | None = None,
     ):
         super().__init__()
         self.save_hyperparameters(logger=False)
         self.opt_config = optimizer_config
 
-        self.model = LatentEmbeddingAdditionModel(embedding_config, num_encoder_config, transformer_config)
+        self.model = LatentEmbeddingAdditionModel(embedding_config, num_encoder_config,
+                                                  transformer_config, pretrained_model)
         self.loss_fn = hydra.utils.instantiate(loss_config)
+        self.logit_regularization = logit_regularization
 
         num_classes = embedding_config.max_value - embedding_config.min_value + 1
         self.train_clas_metrics = self.get_classification_metrics("train/", num_classes)
@@ -213,6 +237,10 @@ class AdditionLightning(lightning.LightningModule):
         y_pred = self.model.idx_to_value(y_pred_idx)
         loss: Tensor = self.loss_fn(logits, y_idx)
         self.log("train/loss", loss)
+        if self.logit_regularization is not None:
+            penalty = self.logit_regularization * logits.mean() ** 2
+            self.log("train/logit_penalty", penalty)
+            loss = loss + penalty
         self.train_clas_metrics(logits, y_idx)
         self.train_regr_metrics(y_pred, y)
         self.log_dict(self.train_clas_metrics)
@@ -225,6 +253,8 @@ class AdditionLightning(lightning.LightningModule):
         logits: Tensor = self(x1, x2)
         y_pred_idx = logits.argmax(dim=-1)
         y_pred = self.model.idx_to_value(y_pred_idx)
+        loss = self.loss_fn(logits, y_idx)
+        self.log("valid/loss", loss)
         self.valid_clas_metrics(logits, y_idx)
         self.valid_regr_metrics(y_pred, y)
         self.log_dict(self.valid_clas_metrics)
