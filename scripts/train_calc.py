@@ -126,15 +126,15 @@ def main(
     model.tokenizer = tokenizer
     model.generation_config.max_new_tokens = max_output_length
 
-    wandb.init(
-        entity=wandb_entity,
-        project=wandb_project,
-        tags=[model_name, "supervised"],
-        group=wandb_group,
-        dir=wandb_dir,
-    )
-
-    wandb.config.update({"cli_params": cli_params})
+    # wandb.init(
+    #     entity=wandb_entity,
+    #     project=wandb_project,
+    #     tags=[model_name, "supervised"],
+    #     group=wandb_group,
+    #     dir=wandb_dir,
+    # )
+    #
+    # wandb.config.update({"cli_params": cli_params})
 
     # # ORIGINAL CALC-X code
     #
@@ -281,6 +281,11 @@ def main(
             print("Freezing num embeddings in training")
             model.build_num_latents()
             model.get_numeric_emb().requires_grad = False
+            if glue_dims_match:
+                # pre-trained glue -> freeze
+                print("Also freezing pre-trained glue to num embeddings")
+                model.embedding.embs["num"].to_model_dim.requires_grad = False
+                model.embedding.embs["num"].to_embed_dim.requires_grad = False
         else:
             print("Freezing input embeddings in training")
             model.model.embed_tokens.requires_grad = False
