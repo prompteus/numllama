@@ -195,15 +195,15 @@ def main(
     def preprocess(example, label_col, permute: bool = True, permuter: Optional[StepPermuter] = None):
         questions = example[input_col]
         chains = example[label_col]
+        questions = [_preproc_nums(text) for text in questions]
+        chains = [_preproc_nums(text) for text in chains]
 
         if permute:
             for i in range(len(example[input_col])):
                 questions[i], chains[i] = permuter.permute_chain(questions[i], chains[i])
 
-        input_text = [_preproc_nums(text) for text in questions]
-        input_label = [_preproc_nums(text) for text in chains]
-        inputs = tokenizer(input_text, truncation=True, max_length=max_output_length)
-        labels = tokenizer(text_target=input_label, truncation=True, max_length=max_output_length)
+        inputs = tokenizer(questions, truncation=True, max_length=max_output_length)
+        labels = tokenizer(text_target=chains, truncation=True, max_length=max_output_length)
 
         inputs_labels = [i + [tokenizer.eos_token_id] + l + [tokenizer.eos_token_id]
                          for i, l in zip(inputs.input_ids, labels.input_ids)]

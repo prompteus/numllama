@@ -51,7 +51,8 @@ class StepPermuter:
     def _replace_all(text: str, replacement_map: dict[str, str]) -> str:
         out_text = text
         for orig, repl in replacement_map.items():
-            out_text = out_text.replace(orig, repl)
+            # dealing with random matches: this assumes that numbers are space-separated
+            out_text = out_text.replace(" %s " % orig, " %s " % repl)
         return out_text
 
     def _permute_numbers_all_steps(self,
@@ -78,7 +79,7 @@ class StepPermuter:
             all_results_positive = True  # passing the non-repeat condition unless the check of new results fails
             # permute numbers in the question (first step)
             first_step_numerals = self.numeral_re.findall(question_without_choices)
-            replaces_map = {num: self._replace_num(num, contains_exp=any("**" in step for step in sample_steps))
+            replaces_map = {num.strip(): self._replace_num(num, contains_exp=any("**" in step for step in sample_steps)).strip()
                             for num in first_step_numerals}
 
             out_steps = [self._replace_all(question, replaces_map)]
@@ -147,7 +148,7 @@ class StepPermuter:
                             all_results_positive = False
                             break
 
-                    replaces_map[orig_gadget_output] = new_gadget_output.split(" = around")[0]
+                    replaces_map[orig_gadget_output.strip()] = new_gadget_output.split(" = around")[0].strip()
 
                 if not all_results_positive:
                     break
