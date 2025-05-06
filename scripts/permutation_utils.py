@@ -30,11 +30,12 @@ def separate_chain_to_steps(chain: str, special_sep_token: Optional[str] = None)
 class StepPermuter:
     numeral_re = re.compile(r"\d+(?:\.\d+)?")
 
-    def __init__(self, tokenizer: PreTrainedTokenizerBase, seed: int):
+    def __init__(self, tokenizer: PreTrainedTokenizerBase, seed: int, space_nums: bool = True):
         self.tokenizer = tokenizer
         random.seed(seed)
         self.num_altered = 0
         self.num_all = 0
+        self.space_nums = space_nums
 
     def _replace_num(self, number: int | float, contains_exp: bool = False) -> str:
         # replace with a number of a similar scale as the original
@@ -55,11 +56,18 @@ class StepPermuter:
             out_text = out_text.replace(" %s " % orig, " %s " % repl)
         return out_text
 
+    def _postproc_step(self, step: str) -> str:
+        out_step = step
+        if self.space_nums:
+            out_step = re.sub(r'\s*(\d+(?:\.\d+)?)\s*', r' \1 ', out_step)
+
+        return out_step
+
     def _permute_numbers_all_steps(self,
                                    sample_steps: list[str],
                                    supported_range_start: int = 0,
                                    supported_range_end: int = 130_000,
-                                   max_attempts: int = 10) -> tuple[list[str], str | None]:
+                                   max_attempts: int = 50) -> tuple[list[str], str | None]:
         calculator = gadgets.gadget.Calculator()
         question = sample_steps[0]
         # we assume that the given questions already do not contain options -- we have
@@ -72,7 +80,7 @@ class StepPermuter:
             # not a multi-choice question
             multi_choice_sep = None
             question_without_choices = question
-
+        only_addition = True
         all_results_positive = False
         num_iters = 0
         while not all_results_positive:
@@ -154,7 +162,7 @@ class StepPermuter:
                     break
 
 
-                out_steps.append(self._replace_all(step, replaces_map))
+                out_steps.append(self._postproc_step(self._replace_all(step, replaces_map)))
 
             if not all_results_positive:
                 num_iters += 1
