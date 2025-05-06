@@ -126,15 +126,15 @@ def main(
     model.tokenizer = tokenizer
     model.generation_config.max_new_tokens = max_output_length
 
-    # wandb.init(
-    #     entity=wandb_entity,
-    #     project=wandb_project,
-    #     tags=[model_name, "supervised"],
-    #     group=wandb_group,
-    #     dir=wandb_dir,
-    # )
-    #
-    # wandb.config.update({"cli_params": cli_params})
+    wandb.init(
+        entity=wandb_entity,
+        project=wandb_project,
+        tags=[model_name, "supervised"],
+        group=wandb_group,
+        dir=wandb_dir,
+    )
+
+    wandb.config.update({"cli_params": cli_params})
 
     # # ORIGINAL CALC-X code
     #
