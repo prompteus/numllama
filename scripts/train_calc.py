@@ -11,6 +11,7 @@ import wandb
 import re
 
 import numllama.metrics
+import numllama as gadgets
 from scripts import utils
 from scripts.permutation_utils import StepPermuter
 
@@ -31,11 +32,13 @@ def main(
     use_instructions_val: bool = False,
     permute_train_numbers: bool = False,
     permute_val_numbers: bool = False,
+    only_addition_in_train: bool = False,
+    only_addition_in_val: bool = False,
     model_name: str = "meta-llama/Llama-3.2-1B",
     num_embeddings_model: Optional[str] = "None",
     freeze_input_embeddings: bool = True,
     limit_train_set_per_ds: int = -1,
-    limit_val_set_per_ds: int = 40,  # TODO
+    limit_val_set_per_ds: int = 25,  # TODO
     wandb_entity: str = "transformersclub",
     wandb_project: str = "numllama",
     wandb_group: Optional[str] = "",
@@ -126,15 +129,15 @@ def main(
     model.tokenizer = tokenizer
     model.generation_config.max_new_tokens = max_output_length
 
-    wandb.init(
-        entity=wandb_entity,
-        project=wandb_project,
-        tags=[model_name, "supervised"],
-        group=wandb_group,
-        dir=wandb_dir,
-    )
-
-    wandb.config.update({"cli_params": cli_params})
+    # wandb.init(
+    #     entity=wandb_entity,
+    #     project=wandb_project,
+    #     tags=[model_name, "supervised"],
+    #     group=wandb_group,
+    #     dir=wandb_dir,
+    # )
+    #
+    # wandb.config.update({"cli_params": cli_params})
 
     # # ORIGINAL CALC-X code
     #
@@ -155,6 +158,29 @@ def main(
     data_collator = transformers.DataCollatorForSeq2Seq(tokenizer, model)
     ds_train = datasets.load_dataset(train_ds, split=train_ds_split_name)
     ds_valid = datasets.load_dataset(valid_ds, split="validation")
+
+
+    def is_only_addition(example, chain_col: str) -> bool:
+        import bs4
+        chain = example[chain_col]
+        doc = bs4.BeautifulSoup(chain, features="html.parser")
+        gadget_tags: list[bs4.Tag] = doc.find_all(gadgets.markup.GADGET_TAG)
+        only_addition = True
+        for tag in gadget_tags:
+            gadget_input = tag.get_text()
+            operators = re.findall("[+\-*/^%=<>]", gadget_input)
+            only_addition = only_addition and all(op == "+" or op == "-" for op in operators)
+
+        return only_addition
+
+    if only_addition_in_train:
+        ds_train = ds_train.filter(lambda example: is_only_addition(example, train_label_col))
+        print('Subsetting train dataset to %s samples containing only "+"/"-"' % len(ds_train))
+
+    if only_addition_in_val:
+        ds_valid = ds_valid.filter(lambda example: is_only_addition(example, train_label_col))
+        print('Subsetting val dataset to %s samples containing only "+"/"-"' % len(ds_valid))
+
     instructions_ds = datasets.load_dataset("MU-NLPC/Calc-X_style-instructions")
 
     random_generator = np.random.default_rng(0)
@@ -212,13 +238,18 @@ def main(
 
         return {"input_ids": inputs_labels, "labels": labels_ignored}
 
+    if permute_train_numbers:
+        # drop aqua-rat with inparseable computations
+        ds_train = ds_train.filter(lambda row: row["source_ds"] != "aqua_rat")
     ds_train = ds_train.map(preprocess, batched=True, fn_kwargs={"label_col": train_label_col,
                                                                  "permute": permute_train_numbers,
-                                                                 "permuter": StepPermuter(tokenizer, seed=42)})
-    # TODO: try also to not permute the val set, to see if permutation helps num embeddings in general
+                                                                 "permuter": StepPermuter(tokenizer, seed=42, space_nums=True)})
+    if permute_val_numbers:
+        # drop aqua-rat with inparseable computations
+        ds_valid = ds_valid.filter(lambda row: row["source_ds"] != "aqua_rat")
     ds_valid = ds_valid.map(preprocess, batched=True, fn_kwargs={"label_col": valid_label_col,
                                                                  "permute": permute_val_numbers,
-                                                                 "permuter": StepPermuter(tokenizer, seed=42)})
+                                                                 "permuter": StepPermuter(tokenizer, seed=42, space_nums=True)})
     ds_train = ds_train.shuffle(seed=0)
 
     callbacks = []
