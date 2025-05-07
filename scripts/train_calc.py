@@ -129,31 +129,23 @@ def main(
     model.tokenizer = tokenizer
     model.generation_config.max_new_tokens = max_output_length
 
-    wandb.init(
-        entity=wandb_entity,
-        project=wandb_project,
-        tags=[model_name, "supervised"],
-        group=wandb_group,
-        dir=wandb_dir,
-    )
+    val_dataset_tags = []
+    if only_addition_in_val:
+        val_dataset_tags.append("addition")
+    if permute_val_numbers:
+        val_dataset_tags.append("permuted")
+
+    val_dataset_tag = "+".join(val_dataset_tags)+"_val"
+
+    wandb.init(entity=wandb_entity,
+               project=wandb_project,
+               tags=[val_dataset_tag],
+               group=wandb_group,
+               dir=wandb_dir)
+
+    print("Running with arguments:", sys.argv[1:])
 
     wandb.config.update({"cli_params": cli_params})
-
-    # # ORIGINAL CALC-X code
-    #
-    # gadgets.utils.add_new_token(
-    #     "<",
-    #     is_special=False,
-    #     tokenizer=tokenizer,
-    #     model=model,
-    #     init_with=["[", ">"],
-    # )
-
-    # model.prepare_for_generate(
-    #     tokenizer,
-    #     enabled_gadgets=[gadgets.gadget.Calculator()],
-    #     default_max_tokens=max_output_length,
-    # )
 
     data_collator = transformers.DataCollatorForSeq2Seq(tokenizer, model)
     ds_train = datasets.load_dataset(train_ds, split=train_ds_split_name)
@@ -187,10 +179,8 @@ def main(
 
     def add_instruction(example):
         source_ds = example["source_ds"]
-        template: str = random_generator.choice(
-            instructions_ds[source_ds]["template"],
-            p=instructions_ds[source_ds]["weight"],
-        )
+        template: str = random_generator.choice(instructions_ds[source_ds]["template"],
+                                                p=instructions_ds[source_ds]["weight"])
         return {input_col: template.format(example[input_col])}
 
     if limit_train_set_per_ds is not None and limit_train_set_per_ds > 0:
@@ -209,7 +199,6 @@ def main(
         ds_train = ds_train.map(add_instruction)
     if use_instructions_val:
         ds_valid = ds_valid.map(add_instruction)
-
 
     def _preproc_nums(input_str: str, space_nums: bool = True) -> str:
         # transformations needed for a correct functioning of the num-augmented tokenizer
@@ -254,10 +243,8 @@ def main(
 
     callbacks = []
     if early_stopping_patience is not None:
-        early_stopping = transformers.EarlyStoppingCallback(
-            early_stopping_patience=early_stopping_patience,
-            early_stopping_threshold=early_stopping_threshold,
-        )
+        early_stopping = transformers.EarlyStoppingCallback(early_stopping_patience=early_stopping_patience,
+                                                            early_stopping_threshold=early_stopping_threshold)
         callbacks.append(early_stopping)
 
     training_args = transformers.Seq2SeqTrainingArguments(
@@ -289,24 +276,18 @@ def main(
         load_best_model_at_end=True,
         save_total_limit=save_total_limit,
     )
-
-    metrics = numllama.metrics.MonitorMetrics(
-        tokenizer=tokenizer,
-        log_predictions=True,
-        eval_ds_inputs=ds_valid["input_ids"],
-        source_ds_col=ds_valid["source_ds"],
-    )
-
-    trainer = utils.CustomSeq2SeqTrainer(
-        model=model,
-        args=training_args,
-        train_dataset=ds_train,
-        eval_dataset=ds_valid,
-        tokenizer=tokenizer,
-        data_collator=data_collator,
-        compute_metrics=metrics,
-        callbacks=callbacks,
-    )
+    metrics = numllama.metrics.MonitorMetrics(tokenizer=tokenizer,
+                                              log_predictions=True,
+                                              eval_ds_inputs=ds_valid["input_ids"],
+                                              source_ds_col=ds_valid["source_ds"])
+    trainer = utils.CustomSeq2SeqTrainer(model=model,
+                                         args=training_args,
+                                         train_dataset=ds_train,
+                                         eval_dataset=ds_valid,
+                                         tokenizer=tokenizer,
+                                         data_collator=data_collator,
+                                         compute_metrics=metrics,
+                                         callbacks=callbacks)
     if freeze_input_embeddings:
         if num_embeddings_model.lower() != "none":
             print("Freezing num embeddings in training")
