@@ -137,12 +137,12 @@ def main(
 
     val_dataset_tag = "+".join(val_dataset_tags)+"_val"
 
-    # wandb.init(entity=wandb_entity,
-    #            project=wandb_project,
-    #            tags=[val_dataset_tag],
-    #            group=wandb_group,
-    #            dir=wandb_dir)
-    # wandb.config.update({"cli_params": cli_params})
+    wandb.init(entity=wandb_entity,
+               project=wandb_project,
+               tags=[val_dataset_tag],
+               group=wandb_group,
+               dir=wandb_dir)
+    wandb.config.update({"cli_params": cli_params})
 
     print("Running with arguments:", sys.argv[1:])
 
