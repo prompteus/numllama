@@ -134,7 +134,8 @@ class LatentEmbeddingAdditionModel(torch.nn.Module):
 
         if pretrained_model is not None:
             self.pretrained_model = transformers.AutoModelForCausalLM.from_pretrained(pretrained_model)
-            self.pretrained_model.requires_grad = False
+            for p in self.pretrained_model.parameters():
+                p.requires_grad = False
         else:
             self.transformer = torch.nn.TransformerEncoder(
                     encoder_layer=torch.nn.TransformerEncoderLayer(

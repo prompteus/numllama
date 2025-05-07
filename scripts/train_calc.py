@@ -291,15 +291,19 @@ def main(
         if num_embeddings_model.lower() != "none":
             print("Freezing num embeddings in training")
             model.build_num_latents()
-            model.get_numeric_emb().requires_grad = False
+            for p in model.get_numeric_emb().parameters():
+                p.requires_grad = False
             if glue_dims_match:
                 # pre-trained glue -> freeze
                 print("Also freezing pre-trained glue to num embeddings")
-                model.embedding.embs["num"].to_model_dim.requires_grad = False
-                model.embedding.embs["num"].to_embed_dim.requires_grad = False
+                for p in model.embedding.embs["num"].to_model_dim.parameters():
+                    p.requires_grad = False
+                for p in model.embedding.embs["num"].to_embed_dim.parameters():
+                    p.requires_grad = False
         else:
             print("Freezing input embeddings in training")
-            model.model.embed_tokens.requires_grad = False
+            for p in model.model.embed_tokens.parameters():
+                p.requires_grad = False
 
     trainer.train()
 
