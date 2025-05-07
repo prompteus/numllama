@@ -59,7 +59,7 @@ def main(
     save_total_limit: int = 5,
     eval_steps: int = 2000,
     save_steps: int = 20000,
-    learning_rate: float = 5e-5,
+    learning_rate: float = 4e-5,
     early_stopping_patience: Optional[int] = 100,
     early_stopping_threshold: float = 0.01,
 ) -> None:
