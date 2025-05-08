@@ -37,6 +37,7 @@ def main(
     model_name: str = "meta-llama/Llama-3.2-1B",
     num_embeddings_model: Optional[str] = "None",
     freeze_input_embeddings: bool = False,
+    reload_lm_from_num_embs: bool = False,
     limit_train_set_per_ds: int = -1,
     limit_val_set_per_ds: int = 25,  # TODO
     wandb_entity: str = "transformersclub",
@@ -88,9 +89,14 @@ def main(
                 **original_config.to_dict(),
         )
         model = numllama.numllama.NumLlamaForCausalLM.from_pretrained(model_name, config=config)
+        if reload_lm_from_num_embs:
+            if hasattr(addition_model.model, "pretrained_model"):
+                model.load_state_dict(addition_model.model.pretrained_model.state_dict())
+            else:
+                raise ValueError("reload_lm_from_num_embs is set to True, but the given num encoder does not have a pretrained_model")
 
         # create the new numeric embedding layer inside llama
-        model.apply_numeric_patch()
+        model.apply_numeric_patch(freeze_num_embs=freeze_input_embeddings)
 
         tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
         # change how llama tokenizes numbers
