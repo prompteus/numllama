@@ -129,6 +129,26 @@ def main(
     model.tokenizer = tokenizer
     model.generation_config.max_new_tokens = max_output_length
 
+    if freeze_input_embeddings:
+        if num_embeddings_model.lower() != "none":
+            print("Freezing num embeddings in training")
+            model.build_num_latents()
+            for p in model.get_numeric_emb().parameters():
+                p.requires_grad = False
+            if glue_dims_match:
+                # pre-trained glue -> freeze
+                print("Also freezing pre-trained glue to num embeddings")
+                for p in model.embedding.embs["num"].to_model_dim.parameters():
+                    p.requires_grad = False
+                for p in model.embedding.embs["num"].to_embed_dim.parameters():
+                    p.requires_grad = False
+        else:
+            print("Freezing input embeddings in training")
+            for p in model.model.embed_tokens.parameters():
+                p.requires_grad = False
+    else:
+        print("Not freezing any input embeddings")
+
     val_dataset_tags = []
     if only_addition_in_val:
         val_dataset_tags.append("addition")
@@ -287,24 +307,6 @@ def main(
                                          data_collator=data_collator,
                                          compute_metrics=metrics,
                                          callbacks=callbacks)
-    if freeze_input_embeddings:
-        if num_embeddings_model.lower() != "none":
-            print("Freezing num embeddings in training")
-            model.build_num_latents()
-            for p in model.get_numeric_emb().parameters():
-                p.requires_grad = False
-            if glue_dims_match:
-                # pre-trained glue -> freeze
-                print("Also freezing pre-trained glue to num embeddings")
-                for p in model.embedding.embs["num"].to_model_dim.parameters():
-                    p.requires_grad = False
-                for p in model.embedding.embs["num"].to_embed_dim.parameters():
-                    p.requires_grad = False
-        else:
-            print("Freezing input embeddings in training")
-            for p in model.model.embed_tokens.parameters():
-                p.requires_grad = False
-
     trainer.train()
 
 
