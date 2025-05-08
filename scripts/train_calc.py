@@ -156,15 +156,15 @@ def main(
         val_dataset_tags.append("permuted")
 
     tags = ["+".join(val_dataset_tags)+"_val"] if val_dataset_tags else []
+    cmd_params = " ".join(sys.argv[1:])
 
     wandb.init(entity=wandb_entity,
                project=wandb_project,
                tags=tags,
                group=wandb_group,
                dir=wandb_dir)
-    wandb.config.update({"cli_params": cli_params})
-
-    print("Running with arguments: ", " ".join(sys.argv[1:]))
+    wandb.config.update({"cli_params": cli_params, "cmd_params": cmd_params})
+    print("Running with arguments: " + cmd_params)
 
     data_collator = transformers.DataCollatorForSeq2Seq(tokenizer, model)
     ds_train = datasets.load_dataset(train_ds, split=train_ds_split_name)
