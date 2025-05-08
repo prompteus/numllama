@@ -76,7 +76,7 @@ class BaselineLlamaForCausalLM(transformers.LlamaForCausalLM):
 class NumLlamaForCausalLM(BaselineLlamaForCausalLM):
     config_class = NumLlamaConfig
 
-    def apply_numeric_patch(self, freeze_num_embs: bool):
+    def apply_numeric_patch(self):
         if not isinstance(self.config, NumLlamaConfig):
             raise ValueError(f"Expected self.config to be {NumLlamaConfig.__name__}, got {type(self.config).__name__}")
         if self.config.numeric_input_emb is None:
@@ -87,7 +87,7 @@ class NumLlamaForCausalLM(BaselineLlamaForCausalLM):
         numeric_emb: numllama.nn.DualEmbedding = numllama.nn.LatentEmbedding(
             input_embedding=numllama.nn.TokenEmbedding.from_pretrained(
                 numllama.nn.sinusoidal_encode(x=supported_nums, **num_emb_config.model_dump()),
-                freeze=freeze_num_embs,
+                freeze=True,
             ),
             encoder=hydra.utils.instantiate(num_encoder_config),
             embedding_dim=num_emb_config.embedding_dim,

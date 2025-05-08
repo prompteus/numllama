@@ -96,7 +96,7 @@ def main(
                 raise ValueError("reload_lm_from_num_embs is set to True, but the given num encoder does not have a pretrained_model")
 
         # create the new numeric embedding layer inside llama
-        model.apply_numeric_patch(freeze_num_embs=freeze_input_embeddings)
+        model.apply_numeric_patch()
 
         tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
         # change how llama tokenizes numbers
