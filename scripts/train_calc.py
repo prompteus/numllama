@@ -144,7 +144,7 @@ def main(
                dir=wandb_dir)
     wandb.config.update({"cli_params": cli_params})
 
-    print("Running with arguments:", sys.argv[1:])
+    print("Running with arguments: ", " ".join(sys.argv[1:]))
 
     data_collator = transformers.DataCollatorForSeq2Seq(tokenizer, model)
     ds_train = datasets.load_dataset(train_ds, split=train_ds_split_name)
