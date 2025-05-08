@@ -135,11 +135,11 @@ def main(
     if permute_val_numbers:
         val_dataset_tags.append("permuted")
 
-    val_dataset_tag = "+".join(val_dataset_tags)+"_val"
+    tags = ["+".join(val_dataset_tags)+"_val"] if val_dataset_tags else []
 
     wandb.init(entity=wandb_entity,
                project=wandb_project,
-               tags=[val_dataset_tag],
+               tags=tags,
                group=wandb_group,
                dir=wandb_dir)
     wandb.config.update({"cli_params": cli_params})
