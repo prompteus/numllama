@@ -36,7 +36,7 @@ def main(
     only_addition_in_val: bool = False,
     model_name: str = "meta-llama/Llama-3.2-1B",
     num_embeddings_model: Optional[str] = "None",
-    freeze_input_embeddings: bool = True,
+    freeze_input_embeddings: bool = False,
     limit_train_set_per_ds: int = -1,
     limit_val_set_per_ds: int = 25,  # TODO
     wandb_entity: str = "transformersclub",
