@@ -6,10 +6,14 @@ import hydra
 import tokenizers
 import tokenizers.pre_tokenizers
 import torch
-import transformers
 import transformers.modeling_outputs
 import transformers.models
 from torch import Tensor
+from transformers import LlamaConfig
+from transformers.modeling_flash_attention_utils import FlashAttentionKwargs
+from transformers.models.llama.modeling_llama import LlamaDecoderLayer, LlamaAttention
+from transformers.cache_utils import Cache
+from transformers.processing_utils import Unpack
 
 import numllama.addition
 import numllama.nn
@@ -53,7 +57,80 @@ class EmbeddingGlue(numllama.nn.DualEmbedding):
         return self.embedding._decode(self.to_embed_dim(x))
 
 
+class RoutedLlamaAttention(LlamaAttention):
+
+    def __init__(self, config: LlamaConfig, layer_idx: int):
+        super().__init__(config, layer_idx)
+
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        position_ids: Optional[torch.LongTensor] = None,
+        past_key_value: Optional[Cache] = None,
+        output_attentions: Optional[bool] = False,
+        use_cache: Optional[bool] = False,
+        cache_position: Optional[torch.LongTensor] = None,
+        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # necessary, but kept here for BC
+        **kwargs: Unpack[FlashAttentionKwargs],
+    ) -> Tuple[torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]]:
+        residual = hidden_states
+
+        hidden_states = self.input_layernorm(hidden_states)
+
+        # TODO: adjust such that:
+        #  (1) if the predicted pos is within the <result> tags:
+        #      the output attention is only distributed over <gadget> input numbers
+        #  (2) otherwise: no-op
+
+        # 1. get input ids among input arguments
+        # 2. map-style lookup of relevant positions (must be fast)
+        # 3. assess routing:
+        #    in (1), do not compute anything, just return the desired attn pattern
+        #    in (2), return the output of the super() call
+
+        # Self Attention
+        hidden_states, self_attn_weights = self.self_attn(
+            hidden_states=hidden_states,
+            attention_mask=attention_mask,
+            position_ids=position_ids,
+            past_key_value=past_key_value,
+            output_attentions=output_attentions,
+            use_cache=use_cache,
+            cache_position=cache_position,
+            position_embeddings=position_embeddings,
+            **kwargs,
+        )
+        hidden_states = residual + hidden_states
+
+        # Fully Connected
+        residual = hidden_states
+        hidden_states = self.post_attention_layernorm(hidden_states)
+        hidden_states = self.mlp(hidden_states)
+        hidden_states = residual + hidden_states
+
+        outputs = (hidden_states,)
+        if output_attentions:
+            outputs += (self_attn_weights,)
+
+        return outputs
+
+
+class ForcedAttnLlamaDecoderLayer(LlamaDecoderLayer):
+
+    def __init__(self, config: LlamaConfig, layer_idx: int):
+        super().__init__(config, layer_idx)
+
+        self.self_attn = LlamaAttention(config=config, layer_idx=layer_idx)
+
+
 class BaselineLlamaForCausalLM(transformers.LlamaForCausalLM):
+
+    def __init__(self, config):
+        super().__init__(config)
+        self.model.layers = torch.nn.ModuleList(
+                [ForcedAttnLlamaDecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
+        )
 
     def prepare_inputs_for_generation(self, *args, **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
         is_first_generation_call = "past_key_values" in kwargs and not kwargs["past_key_values"]
