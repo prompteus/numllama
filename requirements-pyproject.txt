@@ -1,0 +1,16 @@
+hydra-core
+tokenizers
+transformers
+lightning
+pydantic
+typer
+wandb
+datasets
+beautifulsoup4
+evaluate
+sympy
+accelerate
+sacrebleu
+rouge-score
+sentencepiece
+scipy

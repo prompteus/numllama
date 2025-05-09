@@ -70,6 +70,9 @@ def scalar_are_results_same(pred_result: str, true_result: str, rel_tol: float) 
     pred_result = str(pred_result) if pred_result is not None else ""
     true_result = str(true_result) if true_result is not None else ""
 
+    if not pred_result and not true_result:
+        return False
+
     if pred_result.strip() == true_result.strip():
         return True
 
