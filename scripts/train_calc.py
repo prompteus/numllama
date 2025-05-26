@@ -166,7 +166,7 @@ def main(
 
     wandb.init(entity=wandb_entity,
                project=wandb_project,
-               tags=tags,
+               tags=tags+[model_name],
                group=wandb_group,
                dir=wandb_dir)
     wandb.config.update({"cli_params": cli_params, "cmd_params": cmd_params})
