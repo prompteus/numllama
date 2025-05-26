@@ -20,6 +20,32 @@ def inv_sigmoid(x: Tensor) -> Tensor:
     return -torch.log(1 / x - 1)
 
 
+def binary_encode(
+    x: Tensor,
+    embedding_dim: int,
+    min_value: int | float,
+    max_value: int | float,
+    use_l2_norm: bool = False,
+    norm_const: float | None = None,
+) -> Tensor:
+    y = torch.zeros(x.shape + (embedding_dim,), device=x.device)
+    reserve_dim = 0 if not use_l2_norm else 1
+    x = x - min_value
+    maximum = x.max()
+    for i in range(embedding_dim - reserve_dim):
+        coeff = 2**i
+        if maximum < coeff:
+            break
+        y[..., -i - 1] = torch.floor(x / coeff) % 2
+        x = x - coeff * y[..., -i - 1]
+    if use_l2_norm:
+        y = torch.cat([y, torch.ones_like(y[..., :reserve_dim])], dim=-1)
+        y /= y.norm(dim=-1, keepdim=True, p=2)
+    if norm_const is not None:
+        y *= norm_const
+    return y
+
+
 def sinusoidal_encode(
     x: Tensor,
     embedding_dim: int,

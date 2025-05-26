@@ -3,3 +3,7 @@
 **/__pycache__
 .wandb/
 checkpoints/
+notebooks/fig_embs_fft/
+notebooks/fig_embs_pca/
+notebooks/model_embs_cache/
+notebooks/models_probe_outputs/
