@@ -93,6 +93,8 @@ class NumLlamaForCausalLM(BaselineLlamaForCausalLM):
             embedding_dim=num_emb_config.embedding_dim,
         )
         self.build_num_latents = numeric_emb.build_latents
+        self.use_num_latents = numeric_emb.use_latents
+        self.clear_num_latents = numeric_emb.clear_latents
         if numeric_emb.embedding_dim != self.model.embed_tokens.embedding_dim:
             wrapper = EmbeddingGlue(
                 embed_dim=numeric_emb.embedding_dim,
