@@ -32,7 +32,8 @@ dependencies = [
     "polars (>=1.30.0,<2.0.0)",
     "matplotlib (>=3.10.3,<4.0.0)",
     "scikit-learn (>=1.6.1,<2.0.0)",
-    "lovely-tensors (>=0.1.18,<0.2.0)"
+    "lovely-tensors (>=0.1.18,<0.2.0)",
+    "einops (>=0.8.1,<0.9.0)"
 ]
 
 

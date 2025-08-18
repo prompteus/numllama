@@ -726,6 +726,18 @@ files = [
 six = ">=1.4.0"
 
 [[package]]
+name = "einops"
+version = "0.8.1"
+description = "A new flavour of deep learning operations"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "einops-0.8.1-py3-none-any.whl", hash = "sha256:919387eb55330f5757c6bea9165c5ff5cfe63a642682ea788a6d472576d81737"},
+    {file = "einops-0.8.1.tar.gz", hash = "sha256:de5d960a7a761225532e0f1959e5315ebeafc0cd43394732f103ca44b9837e84"},
+]
+
+[[package]]
 name = "evaluate"
 version = "0.4.3"
 description = "HuggingFace community-driven open-source library of evaluation"
@@ -5019,4 +5031,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12"
-content-hash = "8a8cd1744536c68c5f2a6d07f6f313fc9d70a49b2c28cbf4e87584e3d52bc970"
+content-hash = "1b99eb89c036e8e9cb414288931adcf8b9aaf8a4986d4124224394409e428395"
