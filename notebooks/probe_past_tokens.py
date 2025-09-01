@@ -1,4 +1,5 @@
 import argparse
+from datetime import date
 import itertools
 import random
 
@@ -131,35 +132,38 @@ for train_step, train_batch in enumerate(pbar):
         probe = probes[layer_idx][offset_idx]
         optim = optims[layer_idx][offset_idx]
 
-        probe.train()
-        prediction: torch.Tensor = probe(hidden_states[layer_idx])
-        logits = model.lm_head(prediction)
-        logits = einops.rearrange(logits, "batch seq vocab -> batch vocab seq")
-        logits = logits[..., offset_idx:] # slice from start
-        labels = train_batch[:, :logits.shape[-1]].clone() # slice from end
+        labels = train_batch[:, :-offset_idx].clone().flatten()  # slice from the end
         train_labels_mask = torch.isin(labels, pred_tokens_ids)
         if args.nums:
             # if looking at numbers, exclude from probing the embeddings of tokens that are not numbers
             # not a problem with natural-lang tokens -- there, we probe from every other token
-            train_inputs_mask = torch.isin(train_batch[:, :-offset_idx], pred_tokens_ids)
+            train_inputs_mask = torch.isin(train_batch[:, :-offset_idx].flatten(), pred_tokens_ids)
             train_labels_mask = train_labels_mask & train_inputs_mask
 
-        labels[~train_labels_mask] = -100
+        train_hidden_states = hidden_states[layer_idx][:, offset_idx:].flatten(0, 1)[train_labels_mask]
+
+        probe.train()
+        prediction: torch.Tensor = probe(train_hidden_states)
+        logits = model.lm_head(prediction)
+        # logits = einops.rearrange(logits, "batch seq vocab -> batch vocab seq")
+        # logits = logits[..., offset_idx:] # slice from start
+
+        # labels[~train_labels_mask] = -100
 
         optim.zero_grad()
-        loss = torch.nn.functional.cross_entropy(logits, labels)
+        loss = torch.nn.functional.cross_entropy(logits, labels[train_labels_mask])
         loss.backward()
         optim.step()
-        curr_train_accs[layer_idx][offset_idx] = (logits.argmax(dim=1) == labels).float().mean().item()
+        curr_train_accs[layer_idx][offset_idx] = (logits.argmax(dim=1) == labels[train_labels_mask]).float().mean().item()
 
-    eval_every_n_steps = 10
-    with open("logs_probe_past_%s_max_%s_offsets=%s.tsv" % (
+    eval_every_n_steps = 100
+    with open("logs_probe_past_%s_max_%s_offsets=%s-%s.tsv" % (
             "numbers" if args.nums else "tokens",
             args.num_texts if args.only_nums else "all-in-text",
-            str(offset_idcs)
+            str(offset_idcs),
+            date.today(),
     ), mode="a") as log_f:
         if train_step % eval_every_n_steps == 0 and train_step != 0:
-            probe.eval()
             with torch.no_grad():
                 curr_valid_accs = torch.zeros((max(layer_idcs)+1, max(offset_idcs)+1, n_valid_batches), device=device, dtype=torch.float32)
                 for val_batch_idx, valid_batch in enumerate(tqdm.auto.tqdm(valid_loader, desc="Validating", leave=False)):
@@ -168,19 +172,23 @@ for train_step, train_batch in enumerate(pbar):
                     hidden_states = model(valid_batch, output_hidden_states=True).hidden_states
 
                     for layer_idx, offset_idx in itertools.product(layer_idcs, offset_idcs):
-                        prediction = probe(hidden_states[layer_idx])
-                        logits = model.lm_head(prediction)
-                        logits = einops.rearrange(logits, "batch seq vocab -> batch vocab seq")
-                        logits = logits[..., offset_idx:] # slice from start
-                        labels = valid_batch[:, :logits.shape[-1]].clone() # slice from end
+                        probe = probes[layer_idx][offset_idx].eval()
+                        labels = valid_batch[:, :-offset_idx].clone().flatten()  # slice from end
                         val_labels_mask = torch.isin(labels, pred_tokens_ids)
                         if args.nums:
                             # if looking at numbers, exclude from probing the embeddings of tokens that are not numbers
                             # not a problem with natural-lang tokens -- there, we probe from every other token
-                            val_inputs_mask = torch.isin(valid_batch[:, :-offset_idx], pred_tokens_ids)
+                            val_inputs_mask = torch.isin(valid_batch[:, :-offset_idx].flatten(), pred_tokens_ids)
                             val_labels_mask = val_labels_mask & val_inputs_mask
 
-                        valid_acc_batch = (logits.argmax(dim=1)[val_labels_mask] == labels[val_labels_mask]).float().mean()
+                        valid_hidden_states = hidden_states[layer_idx][:, offset_idx:].flatten(0, 1)[val_labels_mask]
+
+                        prediction = probe(valid_hidden_states)
+                        logits = model.lm_head(prediction)
+                        # logits = einops.rearrange(logits, "batch seq vocab -> batch vocab seq")
+                        # logits = logits[..., offset_idx:] # slice from start
+
+                        valid_acc_batch = (logits.argmax(dim=1) == labels[val_labels_mask]).float().mean()
                         curr_valid_accs[layer_idx, offset_idx, val_batch_idx] = valid_acc_batch
                 curr_valid_accs = curr_valid_accs.mean(dim=-1) # average over all valid batches
 
