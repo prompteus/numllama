@@ -33,7 +33,8 @@ dependencies = [
     "matplotlib (>=3.10.3,<4.0.0)",
     "scikit-learn (>=1.6.1,<2.0.0)",
     "lovely-tensors (>=0.1.18,<0.2.0)",
-    "einops (>=0.8.1,<0.9.0)"
+    "einops (>=0.8.1,<0.9.0)",
+    "kaleido (>=1.1.0,<2.0.0)",
 ]
 
 
@@ -47,6 +48,7 @@ ruff = "^0.11.2"
 ipykernel = "^6.29.5"
 ipywidgets = "^8.1.7"
 nbformat = "^5.10.4"
+papermill = "^2.6.0"
 
 
 [tool.ruff]
