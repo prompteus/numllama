@@ -1,4 +1,5 @@
 import argparse
+import logging
 from datetime import date
 import itertools
 import random
@@ -9,6 +10,8 @@ import torch
 import tqdm.auto
 import transformers
 import pandas as pd
+
+logger = logging.getLogger()
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-m", "--model", default="meta-llama/Llama-3.2-1B")
@@ -81,7 +84,8 @@ torch.cuda.empty_cache()
 probes = {}
 optims = {}
 
-layer_idcs = range(len(model.model.layers) + 1)
+# layer_idcs = range(len(model.model.layers) + 1)  # TODO: probably revert later
+layer_idcs = range(len(model.model.layers))
 # layer_idcs = [0, 1, 2]
 offset_idcs = [args.token_offset]
 
@@ -129,15 +133,16 @@ for train_step, train_batch in enumerate(pbar):
     # curr_train_accs = torch.zeros((len(layer_idcs), len(offset_idcs)), device=device, dtype=torch.float32)
     curr_train_accs = {layer: {} for layer in range(len(layer_idcs))}
     for layer_idx, offset_idx in itertools.product(layer_idcs, offset_idcs):
+        minus_offset_idx = -offset_idx if offset_idx != 0 else train_batch.shape[1]  # support for zero-th offset
         probe = probes[layer_idx][offset_idx]
         optim = optims[layer_idx][offset_idx]
 
-        labels = train_batch[:, :-offset_idx].clone().flatten()  # slice from the end
+        labels = train_batch[:, :minus_offset_idx].clone().flatten()  # slice from the end
         train_labels_mask = torch.isin(labels, pred_tokens_ids)
         if args.nums:
             # if looking at numbers, exclude from probing the embeddings of tokens that are not numbers
             # not a problem with natural-lang tokens -- there, we probe from every other token
-            train_inputs_mask = torch.isin(train_batch[:, :-offset_idx].flatten(), pred_tokens_ids)
+            train_inputs_mask = torch.isin(train_batch[:, :minus_offset_idx].flatten(), pred_tokens_ids)
             train_labels_mask = train_labels_mask & train_inputs_mask
 
         train_hidden_states = hidden_states[layer_idx][:, offset_idx:].flatten(0, 1)[train_labels_mask]
@@ -157,7 +162,8 @@ for train_step, train_batch in enumerate(pbar):
         curr_train_accs[layer_idx][offset_idx] = (logits.argmax(dim=1) == labels[train_labels_mask]).float().mean().item()
 
     eval_every_n_steps = 100
-    with open("logs_probe_past_%s_max_%s_offsets=%s-%s.tsv" % (
+    # with open("logs_probe_past_%s_max_%s_offsets=%s-%s.tsv" % (  % TODO: revert
+    with open("logs_probe_past_%s_max_%s_offsets=%s-%s_without_last_L.tsv" % (
             "numbers" if args.nums else "tokens",
             args.num_texts if args.only_nums else "all-in-text",
             str(offset_idcs),
@@ -172,13 +178,15 @@ for train_step, train_batch in enumerate(pbar):
                     hidden_states = model(valid_batch, output_hidden_states=True).hidden_states
 
                     for layer_idx, offset_idx in itertools.product(layer_idcs, offset_idcs):
+                        minus_offset_idx = -offset_idx if offset_idx != 0 else train_batch.shape[1]
+
                         probe = probes[layer_idx][offset_idx].eval()
-                        labels = valid_batch[:, :-offset_idx].clone().flatten()  # slice from end
+                        labels = valid_batch[:, :minus_offset_idx].clone().flatten()  # slice from end
                         val_labels_mask = torch.isin(labels, pred_tokens_ids)
                         if args.nums:
                             # if looking at numbers, exclude from probing the embeddings of tokens that are not numbers
                             # not a problem with natural-lang tokens -- there, we probe from every other token
-                            val_inputs_mask = torch.isin(valid_batch[:, :-offset_idx].flatten(), pred_tokens_ids)
+                            val_inputs_mask = torch.isin(valid_batch[:, :minus_offset_idx].flatten(), pred_tokens_ids)
                             val_labels_mask = val_labels_mask & val_inputs_mask
 
                         valid_hidden_states = hidden_states[layer_idx][:, offset_idx:].flatten(0, 1)[val_labels_mask]
@@ -205,3 +213,6 @@ for train_step, train_batch in enumerate(pbar):
                 valid_acc = valid_accs[layer_idx][offset_idx][-1]
                 print(f"Offset:\t{offset_idx}\ttrain step:\t{train_step}\ttrain acc:\t{train_acc:.3f}\tvalid acc:\t{valid_acc:.3f}\tbest layer:\t{best_layer:<2}\tfrom step:\t{(best_step+1)*eval_every_n_steps:<5}\tbest valid acc:\t{best_valid_acc:.3f}",
                       file=log_f)
+                logger.warning("valid_accs log: %s", valid_accs)
+                logger.warning("best per layer: %s", {l: max(l_vals[offset_idx])
+                                                      for l, l_vals in valid_accs.items()})
