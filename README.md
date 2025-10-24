@@ -1,7 +1,6 @@
-# NumLlama
+# Numllama
 
-Project for exploring numerical embeddings for language models.
-
+This is the official repository for the EMNLP 2025 paper: **Pre-trained Language Models Learn Remarkably Accurate Representations of Numbers.**
 
 ## Set up env
 
@@ -12,13 +11,4 @@ conda create -n numllama python=3.12
 conda activate numllama
 pip install poetry
 poetry install
-```
-
-
-## Train model
-
-```shell
-mkdir .wandb
-mkdir checkpoints
-CUDA_VISIBLE_DEVICES=... python scripts/train_calc.py
 ```
