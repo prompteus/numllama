@@ -1,6 +1,14 @@
-# Numllama
+# Remarkably Accurate
 
 This is the official repository for the EMNLP 2025 paper: **Pre-trained Language Models Learn Remarkably Accurate Representations of Numbers.**
+
+It introduces a sinusoidal probe - a probe suitable for decoding representations of numbers. This probe assumes a sinusoidal pattern in embeddings, which is learned by many models across diferent model families (Llama 3, Olmo 2, Phi 4) during pretraining.
+
+
+## Get started
+
+To get started playing around with sinusoidal probe, we recommend trying out going through a notebook `noteoboks/model_activations_probing_next_tok.ipynb`, which is self-contained (depends only on torch and transformers). The notebook showcases how you can start probing the internal activations of a model.
+
 
 ## Set up env
 
@@ -12,6 +20,7 @@ conda activate numllama
 pip install poetry
 poetry install
 ```
+
 
 ## Citation
 ```bibtex
