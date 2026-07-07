@@ -1,13 +1,13 @@
 # Remarkably Accurate
 
-This is the official repository for the EMNLP 2025 paper: **Pre-trained Language Models Learn Remarkably Accurate Representations of Numbers.**
+This is the official repository for the EMNLP 2025 paper: **Pre-trained LMs Learn Remarkably Accurate Representations of Numbers.** For our follow-up ACL 2026 paper **LMs Learn Universal Representations of Numbers and Here’s Why You Should Care**, see a [dedicated repo](https://github.com/prompteus/sin-param).
 
-It introduces a sinusoidal probe - a probe suitable for decoding representations of numbers. This probe assumes a sinusoidal pattern in embeddings, which is learned by many models across diferent model families (Llama 3, Olmo 2, Phi 4) during pretraining.
+This work introduces a sinusoidal probe - a probe suitable for decoding representations of numbers. This probe assumes a sinusoidal pattern in embeddings, which is learned by many models across different model families (Llama 3, Olmo 2, Phi 4) during pretraining.
 
 
 ## Get started
 
-To get started playing around with sinusoidal probe, we recommend trying out going through a notebook `noteoboks/model_activations_probing_next_tok.ipynb`, which is self-contained (depends only on torch and transformers). The notebook showcases how you can start probing the internal activations of a model.
+To get started playing with the sinusoidal probe, we recommend trying out going through a notebook `noteoboks/model_activations_probing_next_tok.ipynb`, which is self-contained (depends only on torch and transformers). The notebook shows how to start probing a model's internal activations.
 
 
 ## Set up env
