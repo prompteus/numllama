@@ -24,13 +24,26 @@ poetry install
 
 ## Citation
 ```bibtex
-@misc{kadlcik2025remarkablyaccurate,
-      title={Pre-trained Language Models Learn Remarkably Accurate Representations of Numbers}, 
-      author={Marek Kadl\v{c}\'{i}k and Michal \v{S}tef\'{a}nik and Timothee Mickus and Michal Spiegel and Josef Kucha\v{r}},
-      year={2025},
-      eprint={2506.08966},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL},
-      url={https://arxiv.org/abs/2506.08966}, 
+@inproceedings{kadlcik-etal-2025-pre,
+    title = "Pre-trained Language Models Learn Remarkably Accurate Representations of Numbers",
+    author = "Kadl{\v{c}}{\'i}k, Marek  and
+      {\v{S}}tef{\'a}nik, Michal  and
+      Mickus, Timothee  and
+      Kucha{\v{r}}, Josef  and
+      Spiegel, Michal",
+    editor = "Christodoulopoulos, Christos  and
+      Chakraborty, Tanmoy  and
+      Rose, Carolyn  and
+      Peng, Violet",
+    booktitle = "Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing",
+    month = nov,
+    year = "2025",
+    address = "Suzhou, China",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2025.emnlp-main.1356/",
+    doi = "10.18653/v1/2025.emnlp-main.1356",
+    pages = "26705--26714",
+    ISBN = "979-8-89176-332-6"
 }
 ```
+
