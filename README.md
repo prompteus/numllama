@@ -1,6 +1,6 @@
 # Remarkably Accurate
 
-This is the official repository for the EMNLP 2025 paper: **Pre-trained LMs Learn Remarkably Accurate Representations of Numbers.** For our follow-up ACL 2026 paper **LMs Learn Universal Representations of Numbers and Here’s Why You Should Care**, see a [dedicated repo](https://github.com/prompteus/sin-param).
+This is the official repository for the EMNLP 2025 paper: **Pre-trained LMs Learn Remarkably Accurate Representations of Numbers.** For our follow-up ACL 2026 paper **LMs Learn Universal Representations of Numbers and Here’s Why You Should Care**, see a [dedicated repo](https://github.com/prompteus/param-sin).
 
 This work introduces a sinusoidal probe - a probe suitable for decoding representations of numbers. This probe assumes a sinusoidal pattern in embeddings, which is learned by many models across different model families (Llama 3, Olmo 2, Phi 4) during pretraining.
 
